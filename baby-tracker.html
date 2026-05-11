@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fdf8f4">
+<title>赤ちゃん記録</title>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdf8f4;
+  --surface: #ffffff;
+  --surface2: #fdf5fb;
+  --surface3: #f5eef8;
+  --border: rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text: #2d2438;
+  --text2: #7b6f88;
+  --text3: #b8adc5;
+  --milk: #34c77b; --milk-bg: #edfbf3; --milk-border: #b8f0d3;
+  --breast: #f97316; --breast-bg: #fff4ed; --breast-border: #fdd0aa;
+  --pee: #5b9cf6; --pee-bg: #eff5ff; --pee-border: #bcd5fd;
+  --poop: #e8a020; --poop-bg: #fffbee; --poop-border: #fde8a6;
+  --sleep: #9b72e8; --sleep-bg: #f5f0ff; --sleep-border: #d5c0f8;
+  --weight: #e8609a; --weight-bg: #fff0f6; --weight-border: #f8bcd8;
+  --bath: #18b8d4; --bath-bg: #edfafd; --bath-border: #a8e8f4;
+  --temp: #e85050; --temp-bg: #fff1f1; --temp-border: #fbbcbc;
+  --food: #6abf40; --food-bg: #f2fbec; --food-border: #c0eca0;
+  --radius: 18px; --radius-sm: 12px; --radius-lg: 24px;
+  --shadow: 0 2px 16px rgba(100,60,140,0.07);
+  --accent1: #f9a8d4; --accent2: #c4b5fd;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased; letter-spacing: -0.01em;
+}
+body {
+  min-height: 100vh; max-width: 480px; margin: 0 auto; padding-bottom: 40px;
+  background: linear-gradient(160deg, #fdf8f4 0%, #fdf0f8 50%, #f5f0ff 100%);
+  background-attachment: fixed;
+}
+
+/* ===== NAME/SETUP MODAL ===== */
+.setup-modal {
+  position: fixed; inset: 0;
+  background: rgba(45,36,56,0.4);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  z-index: 300; display: flex; align-items: center; justify-content: center;
+  padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.setup-modal.open { opacity: 1; pointer-events: auto; }
+.setup-box {
+  background: #fff9fe; border: 1px solid #e8d8f8;
+  border-radius: 28px; padding: 32px 24px 28px;
+  width: 100%; max-width: 360px;
+  box-shadow: 0 12px 48px rgba(150,100,200,0.25);
+}
+.setup-title {
+  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-size: 28px; color: var(--text); margin-bottom: 4px; letter-spacing: -0.02em;
+}
+.setup-sub { font-size: 12px; color: var(--text3); margin-bottom: 24px; }
+.setup-label { font-size: 10px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; }
+.setup-field { margin-bottom: 18px; }
+.setup-input {
+  width: 100%; padding: 14px 16px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; color: var(--text); font-size: 16px;
+  font-family: inherit; outline: none; -webkit-appearance: none;
+  transition: border 0.15s;
+}
+.setup-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(196,181,253,0.15); }
+.setup-input::placeholder { color: var(--text3); }
+.gender-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gender-btn {
+  padding: 16px 8px; background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: 14px;
+  font-size: 24px; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transition: all 0.15s; color: var(--text2);
+}
+.gender-btn .g-label { font-size: 12px; font-weight: 700; }
+.gender-btn.sel-boy  { background: #eff5ff; border-color: #bcd5fd; color: #5b9cf6; box-shadow: 0 0 0 3px rgba(91,156,246,0.12); }
+.gender-btn.sel-girl { background: #fff0f6; border-color: #f8bcd8; color: #e8609a; box-shadow: 0 0 0 3px rgba(232,96,154,0.12); }
+.setup-btn {
+  width: 100%; padding: 17px;
+  background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%);
+  color: #fff; border: none; border-radius: 16px;
+  font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px;
+  font-family: inherit; box-shadow: 0 4px 16px rgba(196,181,253,0.4);
+  transition: opacity 0.15s;
+}
+.setup-btn:active { opacity: 0.85; }
+
+/* ===== HEADER ===== */
+header {
+  padding: max(env(safe-area-inset-top), 18px) 20px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.brand-mark {
+  width: 40px; height: 40px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; box-shadow: 0 4px 16px rgba(196,181,253,0.4);
+  transition: transform 0.15s;
+}
+.brand-mark:active { transform: scale(0.92); }
+.brand-text { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 22px; color: var(--text); line-height: 1; }
+.brand-name { font-size: 11px; color: var(--text2); font-weight: 600; margin-top: 2px; }
+.date-nav {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 6px 10px; border-radius: 999px; box-shadow: var(--shadow);
+}
+.date-arrow { width: 24px; height: 24px; border: none; background: transparent; color: var(--text2); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.date-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+.date-current { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text); font-weight: 500; min-width: 56px; text-align: center; cursor: pointer; }
+
+/* ===== AGE CARD ===== */
+.age-card {
+  margin: 0 16px 14px;
+  border-radius: var(--radius-lg);
+  padding: 20px 22px 16px;
+  box-shadow: var(--shadow);
+  position: relative; overflow: hidden;
+}
+.age-card.boy  { background: linear-gradient(135deg, #eff5ff 0%, #e8edff 100%); border: 1px solid #bcd5fd; }
+.age-card.girl { background: linear-gradient(135deg, #fff5fc 0%, #fce8f6 100%); border: 1px solid #f8bcd8; }
+.age-card.neutral { background: linear-gradient(135deg, #fff5fc 0%, #f0ebff 100%); border: 1px solid #e8d8f8; }
+.age-card::before {
+  content: '';
+  position: absolute; top: -20px; right: -20px;
+  width: 100px; height: 100px; border-radius: 50%;
+  opacity: 0.08;
+}
+.age-card.boy::before  { background: #5b9cf6; }
+.age-card.girl::before { background: #e8609a; }
+.age-card.neutral::before { background: var(--accent2); }
+
+.age-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.age-name-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.05em; }
+.age-birthday-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+.age-main { display: flex; align-items: baseline; gap: 0; flex-wrap: wrap; margin-bottom: 14px; }
+.age-block { display: flex; align-items: baseline; margin-right: 10px; }
+.age-num { font-family: 'DM Mono', monospace; font-size: 44px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+.age-num.boy  { color: #5b9cf6; }
+.age-num.girl { color: #e8609a; }
+.age-num.neutral { color: var(--sleep); }
+.age-unit { font-size: 14px; font-weight: 600; margin-left: 3px; color: var(--text2); }
+
+.age-days-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px; border-radius: 999px;
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600;
+  margin-bottom: 14px;
+}
+.age-days-pill.boy  { background: rgba(91,156,246,0.12); color: #5b9cf6; }
+.age-days-pill.girl { background: rgba(232,96,154,0.12); color: #e8609a; }
+.age-days-pill.neutral { background: rgba(155,114,232,0.12); color: var(--sleep); }
+
+.age-progress-wrap { }
+.age-progress-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 5px; }
+.age-progress-bg { height: 6px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden; }
+.age-progress-fill { height: 100%; border-radius: 999px; transition: width 0.8s cubic-bezier(0.16,1,0.3,1); }
+.age-progress-fill.boy  { background: linear-gradient(90deg, #93c5fd, #5b9cf6); }
+.age-progress-fill.girl { background: linear-gradient(90deg, #f9a8d4, #e8609a); }
+.age-progress-fill.neutral { background: linear-gradient(90deg, var(--accent1), var(--accent2)); }
+
+/* ===== SINCE CARD ===== */
+.since-card {
+  margin: 0 16px 16px;
+  background: linear-gradient(135deg, #fff5fc 0%, #f0ebff 100%);
+  border: 1px solid #e8d8f8; border-radius: var(--radius-lg);
+  padding: 16px 20px; box-shadow: var(--shadow);
+}
+.since-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.since-item { text-align: center; padding: 0 4px; position: relative; }
+.since-item + .since-item::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 1px; background: #e2d5f0; }
+.since-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+.since-value { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text); line-height: 1; }
+.since-unit { font-size: 10px; color: var(--text2); font-weight: 400; }
+.since-meta { font-size: 10px; color: var(--text3); margin-top: 3px; font-family: 'DM Mono', monospace; }
+
+/* ===== QUICK GRID ===== */
+.quick-grid-wrap { margin: 0 16px 16px; }
+.quick-grid-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.18em; font-weight: 500; margin-bottom: 10px; padding: 0 4px; }
+.quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.quick-tile {
+  aspect-ratio: 1; border: 1.5px solid transparent; border-radius: 18px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 8px 4px; font-family: inherit;
+  transition: transform 0.15s, box-shadow 0.15s; box-shadow: var(--shadow);
+}
+.quick-tile:active { transform: scale(0.93); box-shadow: none; }
+.quick-tile-icon { font-size: 24px; line-height: 1; }
+.quick-tile-label { font-size: 10px; font-weight: 600; }
+.quick-tile.milk   { background: var(--milk-bg);   border-color: var(--milk-border);   color: var(--milk); }
+.quick-tile.breast { background: var(--breast-bg); border-color: var(--breast-border); color: var(--breast); }
+.quick-tile.pee    { background: var(--pee-bg);    border-color: var(--pee-border);    color: var(--pee); }
+.quick-tile.poop   { background: var(--poop-bg);   border-color: var(--poop-border);   color: var(--poop); }
+.quick-tile.sleep  { background: var(--sleep-bg);  border-color: var(--sleep-border);  color: var(--sleep); }
+.quick-tile.weight { background: var(--weight-bg); border-color: var(--weight-border); color: var(--weight); }
+.quick-tile.bath   { background: var(--bath-bg);   border-color: var(--bath-border);   color: var(--bath); }
+.quick-tile.temp   { background: var(--temp-bg);   border-color: var(--temp-border);   color: var(--temp); }
+
+/* ===== TAB ===== */
+.tab-bar { display: flex; gap: 4px; margin: 0 16px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 4px; box-shadow: var(--shadow); }
+.tab { flex: 1; padding: 9px 4px; border: none; background: transparent; color: var(--text2); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; border-radius: 10px; transition: all 0.2s; }
+.tab.active { background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%); color: #fff; box-shadow: 0 2px 8px rgba(196,181,253,0.4); }
+.section { display: none; }
+.section.active { display: block; }
+
+/* ===== SECTION HEADER ===== */
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 10px; }
+.section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--text2); font-weight: 600; }
+.section-action { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+/* ===== TIMEBAR ===== */
+.timebar-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin: 0 16px; padding: 18px 14px 14px; box-shadow: var(--shadow); }
+.timebar-title-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding: 0 4px; }
+.timebar-title { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 20px; color: var(--text); }
+.timebar-legend { display: flex; gap: 8px; font-size: 9px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.legend-item { display: flex; align-items: center; gap: 3px; }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+.timebar-svg { width: 100%; height: 90px; display: block; }
+.timebar-labels { display: flex; justify-content: space-between; padding: 6px 4px 0; font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); }
+
+/* ===== SUMMARY ===== */
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px; }
+.summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+.summary-head { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; font-weight: 600; }
+.summary-dot { width: 8px; height: 8px; border-radius: 50%; }
+.summary-main { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--text); }
+.summary-unit { font-size: 13px; color: var(--text2); font-weight: 400; margin-left: 2px; }
+.summary-sub { font-size: 11px; color: var(--text3); margin-top: 6px; font-family: 'DM Mono', monospace; }
+
+/* ===== MILK BARS ===== */
+.milk-bars-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin: 0 16px; padding: 18px; box-shadow: var(--shadow); }
+.milk-bar-row { display: grid; grid-template-columns: 50px 1fr 56px; align-items: center; gap: 12px; margin-bottom: 9px; }
+.milk-bar-row:last-child { margin-bottom: 0; }
+.milk-bar-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); }
+.milk-bar-track { height: 22px; background: var(--milk-bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--milk-border); }
+.milk-bar-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--milk), #78e5a8); transition: width 0.6s cubic-bezier(0.16,1,0.3,1); position: relative; }
+.milk-bar-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 60%); border-radius: 7px; }
+.milk-bar-value { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; text-align: right; color: var(--text); }
+
+/* ===== ACTIVITY LIST ===== */
+.activity-list { margin: 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.activity-item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.activity-item:last-child { border-bottom: none; }
+.activity-item:active { background: #fdf5ff; }
+.activity-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); min-width: 40px; font-weight: 500; }
+.activity-icon { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 17px; border: 1.5px solid transparent; }
+.activity-icon.milk   { background: var(--milk-bg);   border-color: var(--milk-border); }
+.activity-icon.breast { background: var(--breast-bg); border-color: var(--breast-border); }
+.activity-icon.pee    { background: var(--pee-bg);    border-color: var(--pee-border); }
+.activity-icon.poop   { background: var(--poop-bg);   border-color: var(--poop-border); }
+.activity-icon.sleep  { background: var(--sleep-bg);  border-color: var(--sleep-border); }
+.activity-icon.weight { background: var(--weight-bg); border-color: var(--weight-border); }
+.activity-icon.bath   { background: var(--bath-bg);   border-color: var(--bath-border); }
+.activity-icon.temp   { background: var(--temp-bg);   border-color: var(--temp-border); }
+.activity-text { flex: 1; min-width: 0; }
+.activity-main { font-size: 13px; font-weight: 600; color: var(--text); }
+.activity-sub { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.activity-amount { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text); }
+.del-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text3); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; -webkit-tap-highlight-color: rgba(232,96,154,0.15); touch-action: manipulation; }
+.del-btn:active { background: var(--temp-bg); color: var(--temp); }
+
+/* ===== RECORD MODAL ===== */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(45,36,56,0.35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); background: linear-gradient(180deg, #fff9fe 0%, #fdf6ff 100%); border: 1px solid #e8d8f8; border-bottom: none; border-radius: 28px 28px 0 0; width: 100%; max-width: 480px; z-index: 201; padding: 12px 24px max(env(safe-area-inset-bottom), 28px); transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); max-height: 90vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(150,100,200,0.15); }
+.modal.open { transform: translateX(-50%) translateY(0); }
+.modal-handle { width: 40px; height: 5px; background: #e2d5f0; border-radius: 3px; margin: 0 auto 20px; }
+.modal-title { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 28px; margin-bottom: 4px; color: var(--text); }
+.modal-sub { font-size: 11px; color: var(--text3); margin-bottom: 20px; font-family: 'DM Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; }
+.field { margin-bottom: 14px; }
+.field-label { font-size: 10px; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+.field-row { display: flex; gap: 8px; align-items: center; }
+.field-input { flex: 1; padding: 14px 16px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; color: var(--text); font-size: 16px; font-family: 'DM Mono', monospace; outline: none; -webkit-appearance: none; transition: border 0.15s; }
+.field-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(196,181,253,0.15); }
+.field-input::placeholder { color: var(--text3); }
+.now-btn { padding: 12px 16px; background: var(--sleep-bg); border: 1.5px solid var(--sleep-border); border-radius: 12px; color: var(--sleep); font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 700; }
+
+/* ml picker */
+.ml-picker-container { position: relative; height: 160px; }
+.ml-picker { height: 160px; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; border: 1.5px solid var(--border); border-radius: 16px; background: var(--surface); }
+.ml-picker::-webkit-scrollbar { display: none; }
+.ml-picker-item { height: 52px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 600; color: var(--text3); cursor: pointer; transition: color 0.1s, font-size 0.1s; user-select: none; }
+.ml-picker-item.selected { color: var(--milk); font-size: 26px; }
+.ml-picker-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(255,249,254,0.88) 0%, transparent 30%, transparent 70%, rgba(255,249,254,0.88) 100%); pointer-events: none; border-radius: 14px; }
+.ml-picker-line { position: absolute; left: 12px; right: 12px; height: 52px; top: 50%; transform: translateY(-50%); border-top: 1.5px solid var(--milk-border); border-bottom: 1.5px solid var(--milk-border); pointer-events: none; }
+.ml-row { display: flex; align-items: center; gap: 12px; }
+.ml-unit { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--text2); font-weight: 500; }
+
+.submit-btn { width: 100%; padding: 17px; background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%); color: #fff; border: none; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; font-family: inherit; box-shadow: 0 4px 16px rgba(196,181,253,0.4); transition: opacity 0.15s; }
+.submit-btn:active { opacity: 0.85; }
+
+/* Timer */
+.timer-display { text-align: center; margin: 16px 0; padding: 24px; background: linear-gradient(135deg, var(--breast-bg), #fff8f5); border: 1.5px solid var(--breast-border); border-radius: 20px; }
+.timer-time { font-family: 'DM Mono', monospace; font-size: 52px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--breast); margin-bottom: 6px; }
+.timer-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.15em; }
+.timer-side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.timer-side-btn { padding: 16px 12px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; color: var(--text); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.2s; }
+.timer-side-btn.active { background: var(--breast-bg); border-color: var(--breast-border); color: var(--breast); }
+.timer-side-emoji { font-size: 22px; }
+.timer-side-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 2px; }
+.timer-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.timer-btn { padding: 14px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.timer-btn.primary { background: linear-gradient(135deg, #fbbf77, var(--breast)); color: #fff; border-color: var(--breast); box-shadow: 0 4px 12px rgba(249,115,22,0.25); }
+
+/* Charts */
+.weekly-chart { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin: 0 16px; padding: 18px; box-shadow: var(--shadow); }
+.weekly-svg { width: 100%; height: 140px; display: block; }
+.weight-chart { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin: 0 16px; padding: 18px; box-shadow: var(--shadow); }
+.weight-svg { width: 100%; height: 160px; display: block; }
+
+.hero { margin: 8px 20px 14px; }
+.hero-greeting { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 2px; color: var(--text); }
+.hero-greeting span { color: var(--text3); }
+.hero-subtitle { font-size: 12px; color: var(--text2); }
+
+.empty { padding: 36px 20px; text-align: center; color: var(--text3); }
+.empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.5; }
+.empty-text { font-size: 13px; line-height: 1.6; }
+
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%); color: #fff; padding: 11px 22px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 300; box-shadow: 0 8px 24px rgba(196,181,253,0.4); white-space: nowrap; }
+.toast-delete { background: #2d2438; display: flex; align-items: center; gap: 8px; padding: 11px 14px 11px 20px; }
+
+.fixed-records-wrap {
+  margin: 0 16px 16px;
+  background: var(--surface);
+  border: 1.5px solid #e0d4f5;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.fixed-records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, #fdf5fb, #f5f0ff);
+}
+.fixed-records-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.fixed-records-count {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  background: var(--sleep-bg);
+  color: var(--sleep);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.fixed-records-list .activity-item {
+  padding: 12px 16px;
+}
+.fixed-records-list .empty {
+  padding: 24px 16px;
+}
+
+.date-group { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; padding: 12px 18px 6px; border-top: 1px solid var(--border); background: linear-gradient(90deg, #fdf5fb, #f8f0ff); }
+.date-group:first-child { border-top: none; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- セットアップモーダル -->
+<div class="setup-modal" id="setup-modal">
+  <div class="setup-box">
+    <div class="setup-title">👶 はじめまして</div>
+    <div class="setup-sub">赤ちゃんの情報を教えてください</div>
+
+    <div class="setup-field">
+      <div class="setup-label">お名前</div>
+      <input type="text" class="setup-input" id="setup-name" placeholder="例: さくら" maxlength="10">
+    </div>
+
+    <div class="setup-field">
+      <div class="setup-label">性別</div>
+      <div class="gender-row">
+        <button class="gender-btn" id="btn-boy" onclick="selectGender('boy')">
+          👦 <span class="g-label">男の子</span>
+        </button>
+        <button class="gender-btn" id="btn-girl" onclick="selectGender('girl')">
+          👧 <span class="g-label">女の子</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="setup-field">
+      <div class="setup-label">生年月日</div>
+      <input type="date" class="setup-input" id="setup-birthday">
+    </div>
+
+    <button class="setup-btn" onclick="saveSetup()">はじめる 🎉</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand" onclick="openSetupModal()">
+    <div class="brand-mark" id="brand-mark">👶</div>
+    <div>
+      <div class="brand-text" id="brand-text">赤ちゃん記録</div>
+      <div class="brand-name" id="brand-name">タップして設定</div>
+    </div>
+  </div>
+  <div class="date-nav">
+    <button class="date-arrow" id="prev-day" onclick="changeDay(-1)">‹</button>
+    <div class="date-current" id="header-date" onclick="goToday()">今日</div>
+    <button class="date-arrow" id="next-day" onclick="changeDay(1)">›</button>
+  </div>
+</header>
+
+<!-- 生後日数カード -->
+<div class="age-card neutral" id="age-card">
+  <div class="age-top">
+    <div class="age-name-label" id="age-name-label">お名前を設定してください</div>
+    <div class="age-birthday-label" id="age-birthday-label" onclick="openSetupModal()">生年月日を設定</div>
+  </div>
+  <div class="age-main" id="age-main">
+    <div style="font-size:14px;color:var(--text3);font-family:'DM Mono',monospace;">生年月日を入力すると表示されます</div>
+  </div>
+  <div id="age-days-wrap"></div>
+  <div id="age-progress-wrap"></div>
+</div>
+
+<!-- 経過時間 -->
+<div class="since-card">
+  <div class="since-grid">
+    <div class="since-item">
+      <div class="since-label">🍼 前回ミルク</div>
+      <div class="since-value" id="since-milk">—</div>
+      <div class="since-meta" id="since-milk-meta">—</div>
+    </div>
+    <div class="since-item">
+      <div class="since-label">🩲 前回おむつ</div>
+      <div class="since-value" id="since-diaper">—</div>
+      <div class="since-meta" id="since-diaper-meta">—</div>
+    </div>
+    <div class="since-item">
+      <div class="since-label">😴 前回睡眠</div>
+      <div class="since-value" id="since-sleep">—</div>
+      <div class="since-meta" id="since-sleep-meta">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- クイック入力 -->
+<div class="quick-grid-wrap">
+  <div class="quick-grid-label">クイック入力</div>
+  <div class="quick-grid">
+    <button class="quick-tile milk"   onclick="openModal('milk')">  <div class="quick-tile-icon">🍼</div><div class="quick-tile-label">ミルク</div></button>
+    <button class="quick-tile breast" onclick="openModal('breast')"><div class="quick-tile-icon">🤱</div><div class="quick-tile-label">母乳</div></button>
+    <button class="quick-tile pee"    onclick="openModal('pee')">   <div class="quick-tile-icon">💧</div><div class="quick-tile-label">おしっこ</div></button>
+    <button class="quick-tile poop"   onclick="openModal('poop')">  <div class="quick-tile-icon">💩</div><div class="quick-tile-label">うんち</div></button>
+    <button class="quick-tile sleep"  onclick="openModal('sleep')"> <div class="quick-tile-icon">😴</div><div class="quick-tile-label">睡眠</div></button>
+    <button class="quick-tile weight" onclick="openModal('weight')"><div class="quick-tile-icon">⚖️</div><div class="quick-tile-label">体重</div></button>
+    <button class="quick-tile bath"   onclick="openModal('bath')">  <div class="quick-tile-icon">🛁</div><div class="quick-tile-label">お風呂</div></button>
+    <button class="quick-tile temp"   onclick="openModal('temp')">  <div class="quick-tile-icon">🌡️</div><div class="quick-tile-label">体温</div></button>
+  </div>
+</div>
+
+<!-- ★全記録 固定エリア（タブ外・常時表示） -->
+<div class="fixed-records-wrap">
+  <div class="fixed-records-header">
+    <div class="fixed-records-title">📋 全記録</div>
+    <div class="fixed-records-count" id="event-count">—</div>
+  </div>
+  <div class="fixed-records-list activity-list" id="today-list" style="margin:0;border-radius:0;border:none;box-shadow:none"></div>
+</div>
+
+<nav class="tab-bar">
+  <button class="tab active" onclick="switchTab(event,'today')">今日</button>
+  <button class="tab" onclick="switchTab(event,'week')">週間</button>
+  <button class="tab" onclick="switchTab(event,'log')">履歴</button>
+  <button class="tab" onclick="switchTab(event,'weight')">体重</button>
+</nav>
+
+<!-- 今日 -->
+<div class="section active" id="sec-today">
+  <div class="section-header">
+    <div class="section-title">24時間タイムバー</div>
+    <div class="section-action" id="timeline-count">— 件</div>
+  </div>
+  <div class="timebar-card">
+    <div class="timebar-title-row">
+      <div class="timebar-title">今日の流れ</div>
+      <div class="timebar-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--milk)"></span>ミルク</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--sleep)"></span>睡眠</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--pee)"></span>おしっこ</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--poop)"></span>うんち</div>
+      </div>
+    </div>
+    <svg class="timebar-svg" id="timebar-svg" viewBox="0 0 360 90" preserveAspectRatio="none"></svg>
+    <div class="timebar-labels"><span>0時</span><span>6時</span><span>12時</span><span>18時</span><span>24時</span></div>
+  </div>
+
+  <div class="section-header"><div class="section-title">1日のサマリー</div></div>
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--milk)"></span>ミルク合計</div><div class="summary-main" id="s-milk-total">0<span class="summary-unit">ml</span></div><div class="summary-sub" id="s-milk-sub">— 回</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--breast)"></span>母乳時間</div><div class="summary-main" id="s-breast-total">0<span class="summary-unit">分</span></div><div class="summary-sub" id="s-breast-sub">— 回</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--pee)"></span>おしっこ</div><div class="summary-main" id="s-pee">0<span class="summary-unit">回</span></div><div class="summary-sub">水分排出</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--poop)"></span>うんち</div><div class="summary-main" id="s-poop">0<span class="summary-unit">回</span></div><div class="summary-sub">消化リズム</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--sleep)"></span>睡眠時間</div><div class="summary-main" id="s-sleep">0<span class="summary-unit">h</span></div><div class="summary-sub" id="s-sleep-sub">— 回</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--temp)"></span>最新体温</div><div class="summary-main" id="s-temp">—<span class="summary-unit">°C</span></div><div class="summary-sub" id="s-temp-sub">記録なし</div></div>
+  </div>
+
+  <div class="section-header"><div class="section-title">ミルク分布</div><div class="section-action">時間帯別</div></div>
+  <div class="milk-bars-card" id="milk-bars-card"></div>
+
+</div>
+
+<!-- 週間 -->
+<div class="section" id="sec-week">
+  <div class="hero"><div class="hero-greeting">週間<span>.</span></div><div class="hero-subtitle">直近7日間の推移</div></div>
+  <div class="section-header"><div class="section-title">ミルク量の推移</div><div class="section-action">直近7日</div></div>
+  <div class="weekly-chart"><svg class="weekly-svg" id="weekly-milk-svg" viewBox="0 0 360 140" preserveAspectRatio="none"></svg></div>
+  <div class="section-header"><div class="section-title">睡眠時間の推移</div><div class="section-action">直近7日</div></div>
+  <div class="weekly-chart"><svg class="weekly-svg" id="weekly-sleep-svg" viewBox="0 0 360 140" preserveAspectRatio="none"></svg></div>
+</div>
+
+<!-- 履歴 -->
+<div class="section" id="sec-log">
+  <div class="hero"><div class="hero-greeting">履歴<span>.</span></div><div class="hero-subtitle">すべての記録を時系列で表示</div></div>
+  <div class="activity-list" id="all-list"></div>
+</div>
+
+<!-- 体重 -->
+<div class="section" id="sec-weight">
+  <div class="hero"><div class="hero-greeting">体重<span>.</span></div><div class="hero-subtitle">成長の記録を追跡</div></div>
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--weight)"></span>最新</div><div class="summary-main" id="w-latest">—<span class="summary-unit">kg</span></div><div class="summary-sub" id="w-latest-date">記録なし</div></div>
+    <div class="summary-card"><div class="summary-head"><span class="summary-dot" style="background:var(--weight)"></span>増減</div><div class="summary-main" id="w-change">—</div><div class="summary-sub">前回比</div></div>
+  </div>
+  <div class="section-header"><div class="section-title">成長グラフ</div><div class="section-action" id="w-count">— 件</div></div>
+  <div class="weight-chart"><svg class="weight-svg" id="weight-svg" viewBox="0 0 360 160" preserveAspectRatio="none"></svg></div>
+  <div class="section-header"><div class="section-title">体重記録一覧</div></div>
+  <div class="activity-list" id="weight-list"></div>
+</div>
+
+</div>
+
+<div class="modal-backdrop" id="modal-bg" onclick="closeModal()"></div>
+<div class="modal" id="modal"><div class="modal-handle"></div><div id="modal-content"></div></div>
+
+<script>
+// ===== Supabase =====
+const SUPABASE_URL = 'https://nhirvxinironzvbloqul.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pEQn-wJ58PdZWuFuokRR9w_Rne4WuTs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const KEY = 'baby-tracker-v6'; // localStorageフォールバック用
+let records = [];
+let currentDate = new Date().toISOString().slice(0,10);
+let timerState = { active:null, leftSec:0, rightSec:0, leftStart:null, rightStart:null, tickInterval:null };
+let currentTab = 'today';
+let selectedGender = '';
+
+// ===== SETUP =====
+function selectGender(g) {
+  selectedGender = g;
+  document.getElementById('btn-boy').className  = 'gender-btn' + (g==='boy'  ? ' sel-boy'  : '');
+  document.getElementById('btn-girl').className = 'gender-btn' + (g==='girl' ? ' sel-girl' : '');
+}
+function openSetupModal() {
+  const name = localStorage.getItem('baby-name') || '';
+  const gender = localStorage.getItem('baby-gender') || '';
+  const bday = localStorage.getItem('baby-birthday') || '';
+  document.getElementById('setup-name').value = name;
+  document.getElementById('setup-birthday').value = bday;
+  if (gender) selectGender(gender);
+  document.getElementById('setup-modal').classList.add('open');
+}
+function saveSetup() {
+  const name = document.getElementById('setup-name').value.trim();
+  const bday = document.getElementById('setup-birthday').value;
+  if (!name) { document.getElementById('setup-name').focus(); return; }
+  localStorage.setItem('baby-name', name);
+  if (selectedGender) localStorage.setItem('baby-gender', selectedGender);
+  if (bday) localStorage.setItem('baby-birthday', bday);
+  document.getElementById('setup-modal').classList.remove('open');
+  applyBabyInfo();
+  renderAll();
+  const suffix = selectedGender === 'boy' ? 'くん' : selectedGender === 'girl' ? 'ちゃん' : 'ちゃん';
+  showToast('👶 ' + name + suffix + 'の記録を始めます！');
+}
+
+function getSuffix() {
+  const g = localStorage.getItem('baby-gender');
+  return g === 'boy' ? 'くん' : 'ちゃん';
+}
+
+function applyBabyInfo() {
+  const name = localStorage.getItem('baby-name');
+  const gender = localStorage.getItem('baby-gender') || 'neutral';
+  const bday = localStorage.getItem('baby-birthday');
+  const suffix = gender === 'boy' ? 'くん' : 'ちゃん';
+  const emoji = gender === 'boy' ? '👦' : gender === 'girl' ? '👧' : '👶';
+
+  // ヘッダー
+  document.getElementById('brand-mark').textContent = emoji;
+  if (name) document.getElementById('brand-text').textContent = name + suffix + 'の記録';
+  else document.getElementById('brand-text').textContent = '赤ちゃん記録';
+  document.getElementById('brand-name').textContent = name ? 'タップして編集' : 'タップして設定';
+
+  // age card クラス
+  const card = document.getElementById('age-card');
+  card.className = 'age-card ' + (gender === 'neutral' ? 'neutral' : gender);
+
+  if (!name) return;
+
+  // ラベル
+  document.getElementById('age-name-label').textContent = name + suffix;
+
+  if (!bday) {
+    document.getElementById('age-birthday-label').textContent = '生年月日を設定 →';
+    document.getElementById('age-main').innerHTML = '<div style="font-size:13px;color:var(--text3);font-family:\'DM Mono\',monospace;">生年月日を入力すると表示されます</div>';
+    document.getElementById('age-days-wrap').innerHTML = '';
+    document.getElementById('age-progress-wrap').innerHTML = '';
+    return;
+  }
+
+  // 生後計算
+  const birth = new Date(bday + 'T00:00:00');
+  const now = new Date();
+  const totalDays = Math.floor((now - birth) / 86400000);
+
+  // 年・月・日
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  let days = now.getDate() - birth.getDate();
+  if (days < 0) { months--; const prev = new Date(now.getFullYear(), now.getMonth(), 0); days += prev.getDate(); }
+  if (months < 0) { years--; months += 12; }
+
+  const cls = gender === 'neutral' ? 'neutral' : gender;
+
+  // 生年月日ラベル
+  document.getElementById('age-birthday-label').textContent =
+    birth.toLocaleDateString('ja-JP', {year:'numeric', month:'long', day:'numeric'}) + ' 生まれ';
+
+  // メイン数字
+  let mainHtml = '';
+  if (years > 0) {
+    mainHtml += `<div class="age-block"><span class="age-num ${cls}">${years}</span><span class="age-unit">歳</span></div>`;
+  }
+  mainHtml += `<div class="age-block"><span class="age-num ${cls}">${months}</span><span class="age-unit">ヶ月</span></div>`;
+  mainHtml += `<div class="age-block"><span class="age-num ${cls}" style="font-size:${years>0?'32px':'44px'}">${days}</span><span class="age-unit">日</span></div>`;
+  document.getElementById('age-main').innerHTML = mainHtml;
+
+  // 日数pill
+  document.getElementById('age-days-wrap').innerHTML =
+    `<div class="age-days-pill ${cls}">🌱 生後 ${totalDays} 日目</div>`;
+
+  // プログレスバー（1歳=365日を100%として）
+  const targetDays = 365;
+  const pct = Math.min(100, Math.round((totalDays % targetDays) / targetDays * 100));
+  const nextBirthday = years === 0 ? '1歳まで' : `${years+1}歳まで`;
+  const remaining = targetDays - (totalDays % targetDays);
+  document.getElementById('age-progress-wrap').innerHTML = `
+    <div class="age-progress-wrap">
+      <div class="age-progress-label">
+        <span>${years === 0 ? '誕生日' : years + '歳'}</span>
+        <span>あと${remaining}日で${nextBirthday}</span>
+      </div>
+      <div class="age-progress-bg">
+        <div class="age-progress-fill ${cls}" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ===== DATA =====
+async function loadData() {
+  showLoadingOverlay(true);
+  try {
+    const { data, error } = await sb.from('records').select('*').order('ts', { ascending: true });
+    if (error) throw error;
+    records = (data || []).map(row => {
+      const r = { id: row.id, type: row.type, ts: row.ts, ...row.data };
+      if (row.end_ts) r.end = row.end_ts;
+      return r;
+    });
+  } catch(e) {
+    console.warn('Supabase読み込み失敗、ローカルにフォールバック:', e.message);
+    try { const raw = localStorage.getItem(KEY); if (raw) records = JSON.parse(raw); } catch(e2) { records = []; }
+  }
+  showLoadingOverlay(false);
+  const name = localStorage.getItem('baby-name');
+  if (!name) setTimeout(() => openSetupModal(), 400);
+  else applyBabyInfo();
+  renderAll();
+  // リアルタイム購読
+  sb.channel('records-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, () => {
+      loadDataSilent();
+    })
+    .subscribe();
+}
+
+async function loadDataSilent() {
+  try {
+    const { data, error } = await sb.from('records').select('*').order('ts', { ascending: true });
+    if (error) throw error;
+    records = (data || []).map(row => {
+      const r = { id: row.id, type: row.type, ts: row.ts, ...row.data };
+      if (row.end_ts) r.end = row.end_ts;
+      return r;
+    });
+    renderAll();
+  } catch(e) { console.warn('silent reload failed:', e.message); }
+}
+
+async function saveRecord(r) {
+  const row = {
+    id: r.id,
+    type: r.type,
+    ts: r.ts,
+    end_ts: r.end || null,
+    data: {}
+  };
+  // typeごとに追加データをdataに格納
+  const skip = ['id','type','ts','end'];
+  Object.keys(r).forEach(k => { if(!skip.includes(k)) row.data[k] = r[k]; });
+  try {
+    const { error } = await sb.from('records').upsert(row);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Supabase保存失敗、ローカルにフォールバック:', e.message);
+    localStorage.setItem(KEY, JSON.stringify(records));
+  }
+}
+
+async function deleteFromDB(id) {
+  try {
+    const { error } = await sb.from('records').delete().eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Supabase削除失敗:', e.message);
+    localStorage.setItem(KEY, JSON.stringify(records));
+  }
+}
+
+function saveData() {
+  // ローカルにもバックアップ
+  try { localStorage.setItem(KEY, JSON.stringify(records)); } catch(e) {}
+}
+
+function showLoadingOverlay(show) {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(253,248,244,0.85);backdrop-filter:blur(4px);z-index:400;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:14px;color:#7b6f88;font-family:DM Sans,sans-serif;';
+    el.innerHTML = '<div style="font-size:32px;animation:spin 1s linear infinite">🍼</div><div>データを読み込み中...</div>';
+    const style = document.createElement('style');
+    style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+}
+
+// ===== HELPERS =====
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+function fmtDateLong(iso) { return new Date(iso).toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'}); }
+function fmtDateShort(iso) { return new Date(iso).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}); }
+function dateWithTime(dateStr, timeStr) { const [h,m]=timeStr.split(':'); const d=new Date(dateStr+'T00:00:00'); d.setHours(+h,+m,0,0); return d.toISOString(); }
+function getHour(iso) { const d=new Date(iso); return d.getHours()+d.getMinutes()/60; }
+function fmtTimeSince(iso) {
+  if (!iso) return { value:'—', meta:'—' };
+  const diff=(Date.now()-new Date(iso).getTime())/60000;
+  if (diff<0) return { value:'—', meta:'—' };
+  const h=Math.floor(diff/60), m=Math.floor(diff%60);
+  if (h===0) return { value:`${m}<span class="since-unit">分前</span>`, meta:fmtTime(iso) };
+  return { value:`${h}<span class="since-unit">h</span>${m}<span class="since-unit">m前</span>`, meta:fmtTime(iso) };
+}
+function changeDay(d) { const dt=new Date(currentDate+'T00:00:00'); dt.setDate(dt.getDate()+d); if(dt>new Date()) return; currentDate=dt.toISOString().slice(0,10); renderAll(); }
+function goToday() { currentDate=todayStr(); renderAll(); }
+
+// ===== ML PICKER =====
+const ML_VALUES = [];
+for (let i=10; i<=300; i+=10) ML_VALUES.push(i);
+
+function buildMlPicker(lastMl) {
+  const defMl = lastMl || 80;
+  const idx = ML_VALUES.indexOf(defMl) !== -1 ? ML_VALUES.indexOf(defMl) : ML_VALUES.indexOf(80);
+  return `<div class="ml-row">
+    <div class="ml-picker-container">
+      <div class="ml-picker" id="ml-picker">
+        <div style="height:54px"></div>
+        ${ML_VALUES.map((v,i)=>`<div class="ml-picker-item${i===idx?' selected':''}" data-val="${v}">${v}</div>`).join('')}
+        <div style="height:54px"></div>
+      </div>
+      <div class="ml-picker-overlay"></div>
+      <div class="ml-picker-line"></div>
+    </div>
+    <div class="ml-unit">ml</div>
+  </div>`;
+}
+function initMlPicker(lastMl) {
+  const picker = document.getElementById('ml-picker');
+  if (!picker) return;
+  const defMl = lastMl || 80;
+  const idx = ML_VALUES.indexOf(defMl) !== -1 ? ML_VALUES.indexOf(defMl) : ML_VALUES.indexOf(80);
+  picker.scrollTop = idx * 52;
+  picker.addEventListener('scroll', () => {
+    const ci = Math.round(picker.scrollTop/52);
+    picker.querySelectorAll('.ml-picker-item').forEach((el,i) => el.classList.toggle('selected', i===ci));
+  }, { passive:true });
+}
+function getSelectedMl() {
+  const picker = document.getElementById('ml-picker');
+  if (!picker) return 80;
+  return ML_VALUES[Math.min(Math.round(picker.scrollTop/52), ML_VALUES.length-1)] || 80;
+}
+
+// ===== MODAL =====
+function openModal(kind) {
+  const c = document.getElementById('modal-content');
+  const now = new Date().toTimeString().slice(0,5);
+  const lastMilk = [...records].filter(r=>r.type==='milk').sort((a,b)=>b.ts.localeCompare(a.ts))[0];
+  const lastMl = lastMilk ? lastMilk.ml : 80;
+  let html = '';
+
+  if (kind==='milk') {
+    html=`<div class="modal-title">🍼 ミルク</div><div class="modal-sub">授乳を記録</div>
+      <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <div class="field"><div class="field-label">量</div>${buildMlPicker(lastMl)}</div>
+      <button class="submit-btn" onclick="saveMilk()">記録する</button>`;
+  } else if (kind==='breast') {
+    html=`<div class="modal-title">🤱 母乳タイマー</div><div class="modal-sub">左右を計測して記録</div>
+      <div class="timer-display"><div class="timer-time" id="timer-time">00:00</div><div class="timer-label" id="timer-label">タップして開始</div></div>
+      <div class="timer-side-row">
+        <button class="timer-side-btn" id="timer-left" onclick="toggleSide('left')"><div class="timer-side-emoji">🤱</div><div>左</div><div class="timer-side-time" id="timer-left-time">${fmtSec(timerState.leftSec)}</div></button>
+        <button class="timer-side-btn" id="timer-right" onclick="toggleSide('right')"><div class="timer-side-emoji">🤱</div><div>右</div><div class="timer-side-time" id="timer-right-time">${fmtSec(timerState.rightSec)}</div></button>
+      </div>
+      <div class="timer-controls"><button class="timer-btn" onclick="resetTimer()">リセット</button><button class="timer-btn primary" onclick="saveBreast()">記録する</button></div>`;
+    setTimeout(() => updateTimerDisplay(), 0);
+  } else if (kind==='pee') {
+    html=`<div class="modal-title">💧 おしっこ</div><div class="modal-sub">おしっこを記録</div>
+      <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <button class="submit-btn" onclick="saveDiaper('pee')">記録する</button>`;
+  } else if (kind==='poop') {
+    html=`<div class="modal-title">💩 うんち</div><div class="modal-sub">うんちを記録</div>
+      <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <button class="submit-btn" onclick="saveDiaper('poop')">記録する</button>`;
+  } else if (kind==='sleep') {
+    html=`<div class="modal-title">😴 睡眠</div><div class="modal-sub">お昼寝・夜の睡眠を記録</div>
+      <div class="field"><div class="field-label">開始</div><div class="field-row"><input type="time" class="field-input" id="i-start" value="${now}"><button class="now-btn" onclick="document.getElementById('i-start').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <div class="field"><div class="field-label">終了</div><div class="field-row"><input type="time" class="field-input" id="i-end" value="${now}"><button class="now-btn" onclick="document.getElementById('i-end').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <button class="submit-btn" onclick="saveSleep()">記録する</button>`;
+  } else if (kind==='weight') {
+    html=`<div class="modal-title">⚖️ 体重</div><div class="modal-sub">体重を記録</div>
+      <div class="field"><div class="field-label">日付</div><input type="date" class="field-input" id="i-date" value="${todayStr()}"></div>
+      <div class="field"><div class="field-label">体重 (g)</div><input type="number" class="field-input" id="i-g" placeholder="3500" min="0" max="15000" step="10" inputmode="numeric"></div>
+      <button class="submit-btn" onclick="saveWeight()">記録する</button>`;
+  } else if (kind==='bath') {
+    html=`<div class="modal-title">🛁 お風呂</div><div class="modal-sub">入浴を記録</div>
+      <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <button class="submit-btn" onclick="saveBath()">記録する</button>`;
+  } else if (kind==='temp') {
+    html=`<div class="modal-title">🌡️ 体温</div><div class="modal-sub">体温を記録</div>
+      <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
+      <div class="field"><div class="field-label">体温 (°C)</div><input type="number" class="field-input" id="i-temp" placeholder="36.8" min="34" max="42" step="0.1" inputmode="decimal"></div>
+      <button class="submit-btn" onclick="saveTemp()">記録する</button>`;
+  }
+
+  c.innerHTML = html;
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('modal').classList.add('open');
+  if (kind==='milk') setTimeout(() => initMlPicker(lastMl), 50);
+}
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); document.getElementById('modal').classList.remove('open'); }
+
+// ===== TIMER =====
+function fmtSec(s) { const m=Math.floor(s/60),sec=s%60; return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`; }
+function tickTimer() { if(timerState.active==='left') timerState.leftSec++; if(timerState.active==='right') timerState.rightSec++; updateTimerDisplay(); }
+function updateTimerDisplay() {
+  const total=timerState.leftSec+timerState.rightSec;
+  const el=document.getElementById('timer-time'); if(el) el.textContent=fmtSec(total);
+  const lbl=document.getElementById('timer-label'); if(lbl) lbl.textContent=timerState.active?`${timerState.active==='left'?'左':'右'}側 計測中`:'一時停止中';
+  const lt=document.getElementById('timer-left-time'); if(lt) lt.textContent=fmtSec(timerState.leftSec);
+  const rt=document.getElementById('timer-right-time'); if(rt) rt.textContent=fmtSec(timerState.rightSec);
+  const lb=document.getElementById('timer-left'); if(lb) lb.classList.toggle('active',timerState.active==='left');
+  const rb=document.getElementById('timer-right'); if(rb) rb.classList.toggle('active',timerState.active==='right');
+}
+function toggleSide(side) {
+  timerState.active=timerState.active===side?null:side;
+  if(!timerState.leftStart&&!timerState.rightStart) timerState.leftStart=new Date().toISOString();
+  if(timerState.active&&!timerState.tickInterval) timerState.tickInterval=setInterval(tickTimer,1000);
+  else if(!timerState.active&&timerState.tickInterval) { clearInterval(timerState.tickInterval); timerState.tickInterval=null; }
+  updateTimerDisplay();
+}
+function resetTimer() { if(timerState.tickInterval) clearInterval(timerState.tickInterval); timerState={active:null,leftSec:0,rightSec:0,leftStart:null,rightStart:null,tickInterval:null}; updateTimerDisplay(); }
+async function saveBreast() {
+  if(timerState.leftSec===0&&timerState.rightSec===0) return showToast('計測してください');
+  if(timerState.tickInterval){clearInterval(timerState.tickInterval);timerState.tickInterval=null;}
+  const r={id:'r_'+Date.now(),type:'breast',ts:timerState.leftStart||new Date().toISOString(),leftSec:timerState.leftSec,rightSec:timerState.rightSec,totalSec:timerState.leftSec+timerState.rightSec};
+  records.push(r); resetTimer(); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🤱 母乳記録完了');
+}
+
+// ===== SAVE =====
+async function saveMilk() {
+  const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
+  const ml=getSelectedMl();
+  const r={id:'r_'+Date.now(),type:'milk',ts:dateWithTime(currentDate,t),ml};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast(`🍼 ${ml}ml 記録しました`);
+}
+async function saveDiaper(sub) {
+  const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
+  const r={id:'r_'+Date.now(),type:'diaper',ts:dateWithTime(currentDate,t),sub};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal();
+  showToast(sub==='pee'?'💧 おしっこ記録しました':'💩 うんち記録しました');
+}
+async function saveSleep() {
+  const s=document.getElementById('i-start').value, e=document.getElementById('i-end').value;
+  if(!s||!e) return showToast('開始・終了を入力してください');
+  let st=dateWithTime(currentDate,s), et=dateWithTime(currentDate,e);
+  if(new Date(et)<new Date(st)){const d=new Date(et);d.setDate(d.getDate()+1);et=d.toISOString();}
+  const mins=Math.round((new Date(et)-new Date(st))/60000);
+  if(mins<=0) return showToast('時間が正しくありません');
+  const r={id:'r_'+Date.now(),type:'sleep',ts:st,end:et,mins};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('😴 記録しました');
+}
+async function saveWeight() {
+  const d=document.getElementById('i-date').value, g=document.getElementById('i-g').value;
+  if(!d||!g||+g<=0) return showToast('体重と日付を入力してください');
+  const r={id:'r_'+Date.now(),type:'weight',ts:d+'T12:00:00.000Z',g:+g};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('⚖️ 記録しました');
+}
+async function saveBath() {
+  const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
+  const r={id:'r_'+Date.now(),type:'bath',ts:dateWithTime(currentDate,t)};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🛁 記録しました');
+}
+async function saveTemp() {
+  const t=document.getElementById('i-time').value, temp=document.getElementById('i-temp').value;
+  if(!t||!temp) return showToast('時刻と体温を入力してください');
+  const r={id:'r_'+Date.now(),type:'temp',ts:dateWithTime(currentDate,t),temp:+temp};
+  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🌡️ 記録しました');
+}
+async function deleteRecord(id) {
+  const i = records.findIndex(r => r.id === id);
+  if (i === -1) return;
+  const deleted = records[i];
+  records.splice(i, 1);
+  saveData();
+  renderAll();
+  await deleteFromDB(id);
+  // undoトースト
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-delete';
+  toast.innerHTML = '削除しました &nbsp;<button onclick="undoDelete()" style="background:rgba(255,255,255,0.25);border:none;color:#fff;font-weight:700;padding:4px 10px;border-radius:999px;cursor:pointer;font-size:12px;font-family:inherit">元に戻す</button>';
+  document.body.appendChild(toast);
+  window._deletedRecord = deleted;
+  window._deleteIdx = i;
+  const timer = setTimeout(() => { toast.remove(); window._deletedRecord = null; }, 3500);
+  window._deleteTimer = timer;
+}
+async function undoDelete() {
+  if (!window._deletedRecord) return;
+  clearTimeout(window._deleteTimer);
+  const r = window._deletedRecord;
+  records.splice(window._deleteIdx, 0, r);
+  window._deletedRecord = null;
+  saveData(); await saveRecord(r); renderAll();
+  document.querySelector('.toast-delete')?.remove();
+  showToast('元に戻しました');
+}
+
+// ===== RENDER =====
+function renderAll() {
+  const isToday=currentDate===todayStr();
+  const d=new Date(currentDate+'T00:00:00');
+  document.getElementById('header-date').textContent=isToday?'今日':d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+  document.getElementById('next-day').disabled=isToday;
+  applyBabyInfo();
+  renderSinceLast();
+  renderTodayList(); // 全記録は常に更新
+  if(currentTab==='today') renderToday();
+  else if(currentTab==='week') renderWeekly();
+  else if(currentTab==='log') renderHistory();
+  else if(currentTab==='weight') renderWeight();
+}
+function renderSinceLast() {
+  const allMilk=[...records].filter(r=>r.type==='milk'||r.type==='breast').sort((a,b)=>b.ts.localeCompare(a.ts));
+  const allDiaper=[...records].filter(r=>r.type==='diaper').sort((a,b)=>b.ts.localeCompare(a.ts));
+  const allSleep=[...records].filter(r=>r.type==='sleep').sort((a,b)=>(b.end||b.ts).localeCompare(a.end||a.ts));
+  const m=fmtTimeSince(allMilk[0]?.ts); document.getElementById('since-milk').innerHTML=m.value; document.getElementById('since-milk-meta').textContent=m.meta;
+  const dp=fmtTimeSince(allDiaper[0]?.ts); document.getElementById('since-diaper').innerHTML=dp.value; document.getElementById('since-diaper-meta').textContent=dp.meta;
+  const sl=fmtTimeSince(allSleep[0]?.end||allSleep[0]?.ts); document.getElementById('since-sleep').innerHTML=sl.value; document.getElementById('since-sleep-meta').textContent=sl.meta;
+}
+function recordsForDate(ds) {
+  return records.filter(r=>{
+    if(r.type==='sleep') return r.ts.slice(0,10)===ds||(r.end&&r.end.slice(0,10)===ds);
+    return r.ts.slice(0,10)===ds;
+  });
+}
+function renderToday() {
+  const tr=recordsForDate(currentDate);
+  const milk=tr.filter(r=>r.type==='milk'), breast=tr.filter(r=>r.type==='breast');
+  const pee=tr.filter(r=>r.type==='diaper'&&r.sub==='pee'), poop=tr.filter(r=>r.type==='diaper'&&r.sub==='poop');
+  const sleep=tr.filter(r=>r.type==='sleep');
+  const totalMl=milk.reduce((a,b)=>a+b.ml,0), totalSleep=sleep.reduce((a,b)=>a+b.mins,0);
+  const breastTotal=breast.reduce((a,b)=>a+b.totalSec,0);
+  const latestTemp=[...tr].filter(r=>r.type==='temp').sort((a,b)=>b.ts.localeCompare(a.ts))[0];
+
+  document.getElementById('s-milk-total').innerHTML=`${totalMl}<span class="summary-unit">ml</span>`;
+  document.getElementById('s-milk-sub').textContent=milk.length?`${milk.length}回 / 平均${Math.round(totalMl/milk.length)}ml`:'— 回';
+  document.getElementById('s-breast-total').innerHTML=`${Math.floor(breastTotal/60)}<span class="summary-unit">分</span>`;
+  document.getElementById('s-breast-sub').textContent=breast.length?`${breast.length}回`:'— 回';
+  document.getElementById('s-pee').innerHTML=`${pee.length}<span class="summary-unit">回</span>`;
+  document.getElementById('s-poop').innerHTML=`${poop.length}<span class="summary-unit">回</span>`;
+  document.getElementById('s-sleep').innerHTML=`${(totalSleep/60).toFixed(1)}<span class="summary-unit">h</span>`;
+  document.getElementById('s-sleep-sub').textContent=sleep.length?`${sleep.length}回`:'— 回';
+  if(latestTemp){document.getElementById('s-temp').innerHTML=`${latestTemp.temp.toFixed(1)}<span class="summary-unit">°C</span>`;document.getElementById('s-temp-sub').textContent=fmtTime(latestTemp.ts);}
+  else{document.getElementById('s-temp').innerHTML=`—<span class="summary-unit">°C</span>`;document.getElementById('s-temp-sub').textContent='記録なし';}
+
+  drawTimebar(tr,milk,breast,pee,poop,sleep);
+
+  const buckets=[];
+  for(let i=0;i<24;i+=3) buckets.push({start:i,end:i+3,ml:0});
+  milk.forEach(r=>{const h=new Date(r.ts).getHours(); buckets[Math.min(7,Math.floor(h/3))].ml+=r.ml;});
+  const maxMl=Math.max(...buckets.map(b=>b.ml),1);
+  document.getElementById('milk-bars-card').innerHTML=buckets.map(b=>{
+    const pct=b.ml===0?0:Math.max(2,Math.round(b.ml/maxMl*100));
+    const pad=n=>n.toString().padStart(2,'0');
+    return `<div class="milk-bar-row"><div class="milk-bar-time">${pad(b.start)}–${pad(b.end)}</div><div class="milk-bar-track"><div class="milk-bar-fill" style="width:${pct}%"></div></div><div class="milk-bar-value">${b.ml}<span style="color:var(--text3);font-weight:400">ml</span></div></div>`;
+  }).join('');
+
+  document.getElementById('timeline-count').textContent=`${tr.length}件`;
+  document.getElementById('event-count').textContent=`${tr.length}件`;
+  const sorted=[...tr].sort((a,b)=>b.ts.localeCompare(a.ts));
+  document.getElementById('today-list').innerHTML=sorted.length
+    ? sorted.map(r=>activityHTML(r)).join('')
+    : `<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">この日の記録はまだありません</div></div>`;
+}
+
+function renderTodayList(){
+  const tr=recordsForDate(currentDate);
+  const sorted=[...tr].sort((a,b)=>b.ts.localeCompare(a.ts));
+  document.getElementById('event-count').textContent=`${tr.length}件`;
+  document.getElementById('today-list').innerHTML=sorted.length
+    ? sorted.map(r=>activityHTML(r)).join('')
+    : `<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">この日の記録はまだありません</div></div>`;
+}
+
+function drawTimebar(tr,milk,breast,pee,poop,sleep){
+  const W=360,H=90,padL=4,padR=4,padT=10,padB=10,innerW=W-padL-padR,innerH=H-padT-padB;
+  const xFor=h=>padL+(h/24)*innerW, trackY=padT+18, trackH=innerH-24;
+  let svg=`<rect x="${padL}" y="${trackY}" width="${innerW}" height="${trackH}" fill="#f5eeff" rx="8"/>`;
+  for(let h=0;h<=24;h+=6){const x=xFor(h);svg+=`<line x1="${x}" y1="${trackY}" x2="${x}" y2="${trackY+trackH}" stroke="rgba(150,120,200,0.1)" stroke-width="1"/>`;}
+  const td=currentDate;
+  sleep.forEach(s=>{
+    const sh=s.ts.slice(0,10)===td?getHour(s.ts):0, eh=s.end&&s.end.slice(0,10)===td?getHour(s.end):24;
+    let x1=xFor(sh),x2=xFor(eh); if(x2<=x1)x2=xFor(24);
+    svg+=`<rect x="${x1}" y="${trackY+3}" width="${x2-x1}" height="${trackH-6}" fill="#c4b5fd" opacity="0.55" rx="5"/>`;
+  });
+  if(milk.length){const maxMl=Math.max(...milk.map(m=>m.ml),100); milk.forEach(m=>{const x=xFor(getHour(m.ts)),barH=Math.max(8,(m.ml/maxMl)*(trackH-14)),y=trackY+trackH-barH-4;svg+=`<rect x="${x-3}" y="${y}" width="6" height="${barH}" fill="#34c77b" rx="2"/>`;if(m.ml>=50)svg+=`<text x="${x}" y="${y-3}" fill="#34c77b" font-family="DM Mono,monospace" font-size="8" font-weight="600" text-anchor="middle">${m.ml}</text>`;});}
+  breast.forEach(b=>{const x=xFor(getHour(b.ts)),barH=Math.max(8,Math.min(trackH-14,(b.totalSec/1800)*(trackH-14))),y=trackY+trackH-barH-4;svg+=`<rect x="${x-3}" y="${y}" width="6" height="${barH}" fill="#f97316" rx="2"/>`;});
+  pee.forEach(p=>{svg+=`<circle cx="${xFor(getHour(p.ts))}" cy="${trackY+7}" r="4" fill="#5b9cf6"/>`;});
+  poop.forEach(p=>{svg+=`<circle cx="${xFor(getHour(p.ts))}" cy="${trackY+7}" r="4" fill="#e8a020"/>`;});
+  if(currentDate===todayStr()){const now=new Date(),nowX=xFor(now.getHours()+now.getMinutes()/60);svg+=`<line x1="${nowX}" y1="${trackY-4}" x2="${nowX}" y2="${trackY+trackH+4}" stroke="#e8609a" stroke-width="1.5" stroke-dasharray="3,2"/><circle cx="${nowX}" cy="${trackY-4}" r="3" fill="#e8609a"/>`;}
+  document.getElementById('timebar-svg').innerHTML=svg;
+}
+
+function activityHTML(r){
+  let icon='',cls='',main='',sub='',amount='';
+  if(r.type==='milk'){icon='🍼';cls='milk';main='ミルク';sub=fmtTime(r.ts);amount=`${r.ml} ml`;}
+  else if(r.type==='breast'){icon='🤱';cls='breast';main='母乳';const lm=Math.floor(r.leftSec/60),rm=Math.floor(r.rightSec/60);sub=`${fmtTime(r.ts)} · 左${lm}分 右${rm}分`;amount=`${Math.floor(r.totalSec/60)}分`;}
+  else if(r.type==='diaper'){if(r.sub==='pee'){icon='💧';cls='pee';main='おしっこ';}else{icon='💩';cls='poop';main='うんち';}sub=fmtTime(r.ts);}
+  else if(r.type==='sleep'){icon='😴';cls='sleep';main='睡眠';sub=`${fmtTime(r.ts)} – ${r.end ? fmtTime(r.end) : "?"}`;const h=Math.floor(r.mins/60),m=r.mins%60;amount=`${h}h ${m}m`;}
+  else if(r.type==='weight'){icon='⚖️';cls='weight';main='体重';sub=fmtDateShort(r.ts);amount=`${(r.g/1000).toFixed(2)} kg`;}
+  else if(r.type==='bath'){icon='🛁';cls='bath';main='お風呂';sub=fmtTime(r.ts);}
+  else if(r.type==='temp'){icon='🌡️';cls='temp';main='体温';sub=fmtTime(r.ts);amount=`${r.temp.toFixed(1)}°C`;}
+  return `<div class="activity-item"><div class="activity-time">${fmtTime(r.ts)}</div><div class="activity-icon ${cls}">${icon}</div><div class="activity-text"><div class="activity-main">${main}</div><div class="activity-sub">${sub}</div></div>${amount?`<div class="activity-amount">${amount}</div>`:''}<button class="del-btn" data-rid="${r.id||''}" ontouchend="event.preventDefault();deleteRecord(this.dataset.rid)" onclick="deleteRecord(this.dataset.rid)">×</button></div>`;
+}
+
+function renderHistory(){
+  const sorted=[...records].map((r,i)=>({r,i})).sort((a,b)=>b.r.ts.localeCompare(a.r.ts));
+  if(!sorted.length){document.getElementById('all-list').innerHTML=`<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">記録がありません</div></div>`;return;}
+  let html='',lastDate='';
+  sorted.forEach(({r})=>{const d=r.ts.slice(0,10);if(d!==lastDate){html+=`<div class="date-group">${fmtDateLong(r.ts)}</div>`;lastDate=d;}html+=activityHTML(r);});
+  document.getElementById('all-list').innerHTML=html;
+}
+function renderWeekly(){
+  const today=new Date(),days=[];
+  for(let i=6;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10),recs=recordsForDate(ds);days.push({date:ds,label:d.toLocaleDateString('ja-JP',{weekday:'short'}),short:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),milkMl:recs.filter(r=>r.type==='milk').reduce((a,b)=>a+b.ml,0),sleepMin:recs.filter(r=>r.type==='sleep').reduce((a,b)=>a+b.mins,0)});}
+  drawWeeklyChart('weekly-milk-svg',days,d=>d.milkMl,'ml','#34c77b');
+  drawWeeklyChart('weekly-sleep-svg',days,d=>d.sleepMin/60,'h','#9b72e8');
+}
+function drawWeeklyChart(id,days,valFn,unit,color){
+  const W=360,H=140,padL=28,padR=12,padT=14,padB=32,iw=W-padL-padR,ih=H-padT-padB;
+  const values=days.map(valFn),max=Math.max(...values,1)*1.15,barW=iw/days.length*0.65,gap=iw/days.length;
+  let svg='';
+  for(let i=0;i<=2;i++){const v=max*(i/2),y=padT+(1-i/2)*ih;svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="rgba(150,100,200,0.08)"/><text x="${padL-4}" y="${y+3}" fill="#b8adc5" font-size="9" text-anchor="end" font-family="DM Mono">${unit==='ml'?Math.round(v):v.toFixed(1)}</text>`;}
+  days.forEach((d,i)=>{const v=valFn(d),barH=max===0?0:(v/max)*ih,x=padL+gap*i+(gap-barW)/2,y=padT+ih-barH;svg+=`<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" opacity="0.85" rx="5"/>`;if(v>0)svg+=`<text x="${x+barW/2}" y="${y-4}" fill="${color}" font-size="8" font-weight="600" text-anchor="middle" font-family="DM Mono">${unit==='ml'?Math.round(v):v.toFixed(1)}</text>`;svg+=`<text x="${x+barW/2}" y="${H-16}" fill="#7b6f88" font-size="10" text-anchor="middle" font-weight="600">${d.label}</text><text x="${x+barW/2}" y="${H-4}" fill="#b8adc5" font-size="8" text-anchor="middle" font-family="DM Mono">${d.short}</text>`;});
+  document.getElementById(id).innerHTML=svg;
+}
+function renderWeight(){
+  const weights=[...records].filter(r=>r.type==='weight').sort((a,b)=>a.ts.localeCompare(b.ts));
+  document.getElementById('w-count').textContent=`${weights.length}件`;
+  if(!weights.length){document.getElementById('w-latest').innerHTML='—<span class="summary-unit">kg</span>';document.getElementById('w-latest-date').textContent='記録なし';document.getElementById('w-change').textContent='—';document.getElementById('weight-svg').innerHTML=`<text x="180" y="80" fill="#b8adc5" font-size="11" text-anchor="middle" font-family="DM Mono">まだ体重データがありません</text>`;document.getElementById('weight-list').innerHTML=`<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">体重を追加してください</div></div>`;return;}
+  const latest=weights[weights.length-1];
+  document.getElementById('w-latest').innerHTML=`${(latest.g/1000).toFixed(2)}<span class="summary-unit">kg</span>`;
+  document.getElementById('w-latest-date').textContent=fmtDateShort(latest.ts);
+  if(weights.length>1){const prev=weights[weights.length-2],diff=latest.g-prev.g;document.getElementById('w-change').innerHTML=`${diff>0?'+':''}${diff}<span class="summary-unit">g</span>`;}else document.getElementById('w-change').textContent='—';
+  const W=360,H=160,padL=30,padR=16,padT=16,padB=24,iw=W-padL-padR,ih=H-padT-padB;
+  const minG=Math.min(...weights.map(w=>w.g)),maxG=Math.max(...weights.map(w=>w.g)),range=maxG-minG||100,yPad=range*0.15,yMin=minG-yPad,yMax=maxG+yPad;
+  const xFor=i=>weights.length===1?padL+iw/2:padL+(i/(weights.length-1))*iw, yFor=g=>padT+(1-(g-yMin)/(yMax-yMin))*ih;
+  let svg=`<defs><linearGradient id="w-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8609a" stop-opacity="0.25"/><stop offset="100%" stop-color="#e8609a" stop-opacity="0"/></linearGradient></defs>`;
+  for(let i=0;i<=2;i++){const v=yMin+(yMax-yMin)*(i/2),y=yFor(v);svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="rgba(150,100,200,0.08)"/><text x="${padL-6}" y="${y+3}" fill="#b8adc5" font-size="9" text-anchor="end" font-family="DM Mono">${(v/1000).toFixed(1)}</text>`;}
+  if(weights.length>1){const path=weights.map((w,i)=>`${i===0?'M':'L'}${xFor(i)},${yFor(w.g)}`).join(' ');svg+=`<path d="${path} L${xFor(weights.length-1)},${padT+ih} L${xFor(0)},${padT+ih} Z" fill="url(#w-grad)"/><path d="${path}" fill="none" stroke="#e8609a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;}
+  weights.forEach((w,i)=>{const x=xFor(i),y=yFor(w.g);svg+=`<circle cx="${x}" cy="${y}" r="6" fill="#fce4f0"/><circle cx="${x}" cy="${y}" r="3.5" fill="#e8609a"/>`;if(i===weights.length-1)svg+=`<text x="${x}" y="${y-12}" fill="#e8609a" font-size="10" font-weight="600" text-anchor="middle" font-family="DM Mono">${(w.g/1000).toFixed(2)}kg</text>`;});
+  if(weights.length>1){svg+=`<text x="${padL}" y="${H-6}" fill="#b8adc5" font-size="9" font-family="DM Mono">${fmtDateShort(weights[0].ts)}</text><text x="${W-padR}" y="${H-6}" fill="#b8adc5" font-size="9" text-anchor="end" font-family="DM Mono">${fmtDateShort(weights[weights.length-1].ts)}</text>`;}
+  document.getElementById('weight-svg').innerHTML=svg;
+  const idxMap=records.map((r,i)=>({r,i})).filter(x=>x.r.type==='weight').sort((a,b)=>b.r.ts.localeCompare(a.r.ts));
+  document.getElementById('weight-list').innerHTML=idxMap.map(({r})=>activityHTML(r)).join('');
+}
+
+function switchTab(e,name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  document.getElementById('sec-'+name).classList.add('active');
+  currentTab = name;
+  if(name==='today') renderToday();
+  else if(name==='week') renderWeekly();
+  else if(name==='log') renderHistory();
+  else if(name==='weight') renderWeight();
+}
+function showToast(msg){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .35s';setTimeout(()=>t.remove(),400)},2200);}
+
+setInterval(renderSinceLast,60000);
+loadData();
+</script>
+</body>
+</html>
