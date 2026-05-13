@@ -8,7 +8,6 @@
 <meta name="theme-color" content="#fdf8f4">
 <title>赤ちゃん記録</title>
 <!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -611,12 +610,41 @@ header {
 <div class="modal" id="modal"><div class="modal-handle"></div><div id="modal-content"></div></div>
 
 <script>
-// ===== Supabase =====
+// ===== Supabase REST API =====
 const SUPABASE_URL = 'https://nhirvxinironzvbloqul.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_pEQn-wJ58PdZWuFuokRR9w_Rne4WuTs';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oaXJ2eGluaXJvbnp2YmxvcXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NDA1OTYsImV4cCI6MjA5NDAxNjU5Nn0.figRzb2jubBQbUwvJTLBI9a1KlNUa5AvsTvgLQZqEf4';
+const SB_HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=minimal'
+};
 
-const KEY = 'baby-tracker-v6'; // localStorageフォールバック用
+async function sbGet() {
+  const url = `${SUPABASE_URL}/rest/v1/records?select=*&order=ts.asc`;
+  const r = await fetch(url, { headers: SB_HEADERS });
+  if (!r.ok) throw new Error('GET failed: ' + r.status);
+  return await r.json();
+}
+async function sbUpsert(row) {
+  const url = `${SUPABASE_URL}/rest/v1/records`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error('UPSERT failed: ' + r.status + ' ' + t);
+  }
+}
+async function sbDelete(id) {
+  const url = `${SUPABASE_URL}/rest/v1/records?id=eq.${encodeURIComponent(id)}`;
+  const r = await fetch(url, { method: 'DELETE', headers: SB_HEADERS });
+  if (!r.ok) throw new Error('DELETE failed: ' + r.status);
+}
+
+const KEY = 'baby-tracker-v6';
 let records = [];
 let currentDate = new Date().toISOString().slice(0,10);
 let timerState = { active:null, leftSec:0, rightSec:0, leftStart:null, rightStart:null, tickInterval:null };
@@ -740,26 +768,24 @@ function applyBabyInfo() {
 async function loadData() {
   showLoadingOverlay(true);
   try {
-    const res = await sb.from('records').select('*').order('ts', { ascending: true });
-    if (res.error) throw new Error(res.error.message);
-    records = (res.data || []).map(rowToRecord);
+    const data = await sbGet();
+    records = data.map(rowToRecord);
+    console.log('✅ Supabase読み込み成功:', records.length, '件');
   } catch(e) {
-    console.warn('Supabase読み込み失敗:', e.message);
-    records = [];
+    console.warn('⚠️ Supabase読み込み失敗:', e.message);
+    // ローカルからフォールバック
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) records = JSON.parse(raw);
+    } catch(e2) { records = []; }
   }
   showLoadingOverlay(false);
   const name = localStorage.getItem('baby-name');
   if (!name) setTimeout(() => openSetupModal(), 400);
   else applyBabyInfo();
   renderAll();
-  // リアルタイム購読
-  try {
-    sb.channel('records-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, () => {
-        loadDataSilent();
-      })
-      .subscribe();
-  } catch(e) { console.warn('Realtime subscription failed:', e.message); }
+  // 30秒ごとにポーリング（リアルタイム代わり）
+  setInterval(loadDataSilent, 30000);
 }
 
 function rowToRecord(row) {
@@ -773,15 +799,13 @@ function rowToRecord(row) {
 
 async function loadDataSilent() {
   try {
-    const res = await sb.from('records').select('*').order('ts', { ascending: true });
-    if (res.error) throw new Error(res.error.message);
-    records = (res.data || []).map(rowToRecord);
+    const data = await sbGet();
+    records = data.map(rowToRecord);
     renderAll();
   } catch(e) { console.warn('silent reload failed:', e.message); }
 }
 
 async function saveRecord(r) {
-  // プレーンオブジェクトに変換（Supabaseオブジェクトが混入しないよう）
   const skip = new Set(['id','type','ts','end']);
   const data = {};
   Object.keys(r).forEach(k => { if(!skip.has(k)) data[k] = r[k]; });
@@ -793,29 +817,23 @@ async function saveRecord(r) {
     data: data
   };
   try {
-    const res = await sb.from('records').upsert(row);
-    if (res.error) throw new Error(res.error.message);
-    console.log('✅ 保存成功:', row.type, row.ts);
+    await sbUpsert(row);
+    console.log('✅ 保存成功:', row.type);
   } catch(e) {
-    console.error('❌ Supabase保存失敗:', e.message);
-    showToast('⚠️ 保存に失敗しました。再試行します...');
+    console.error('❌ 保存失敗:', e.message);
     // 3秒後にリトライ
     setTimeout(async () => {
-      try {
-        const res2 = await sb.from('records').upsert(row);
-        if (!res2.error) { showToast('✅ 再保存しました'); loadDataSilent(); }
-      } catch(e2) { console.error('リトライも失敗:', e2.message); }
+      try { await sbUpsert(row); console.log('✅ リトライ成功'); }
+      catch(e2) { console.error('リトライも失敗:', e2.message); }
     }, 3000);
   }
 }
 
 async function deleteFromDB(id) {
   try {
-    const { error } = await sb.from('records').delete().eq('id', id);
-    if (error) throw error;
+    await sbDelete(id);
   } catch(e) {
     console.warn('Supabase削除失敗:', e.message);
-    localStorage.setItem(KEY, JSON.stringify(records));
   }
 }
 
@@ -1005,13 +1023,15 @@ function saveWeight() {
 function saveBath() {
   const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
   const r={id:'r_'+Date.now(),type:'bath',ts:dateWithTime(currentDate,t)};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🛁 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('🛁 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
 function saveTemp() {
   const t=document.getElementById('i-time').value, temp=document.getElementById('i-temp').value;
   if(!t||!temp) return showToast('時刻と体温を入力してください');
   const r={id:'r_'+Date.now(),type:'temp',ts:dateWithTime(currentDate,t),temp:+temp};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🌡️ 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('🌡️ 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
 function deleteRecord(id) {
   const i = records.findIndex(r => String(r.id) === String(id));
