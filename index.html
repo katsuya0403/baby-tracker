@@ -8,7 +8,6 @@
 <meta name="theme-color" content="#fdf8f4">
 <title>赤ちゃん記録</title>
 <!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -292,16 +291,41 @@ header {
 .field-input::placeholder { color: var(--text3); }
 .now-btn { padding: 12px 16px; background: var(--sleep-bg); border: 1.5px solid var(--sleep-border); border-radius: 12px; color: var(--sleep); font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 700; }
 
-/* ml picker */
-.ml-picker-container { position: relative; height: 160px; }
-.ml-picker { height: 160px; overflow-y: scroll; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; border: 1.5px solid var(--border); border-radius: 16px; background: var(--surface); }
-.ml-picker::-webkit-scrollbar { display: none; }
-.ml-picker-item { height: 52px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 600; color: var(--text3); cursor: pointer; transition: color 0.1s, font-size 0.1s; user-select: none; }
-.ml-picker-item.selected { color: var(--milk); font-size: 26px; }
-.ml-picker-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(255,249,254,0.88) 0%, transparent 30%, transparent 70%, rgba(255,249,254,0.88) 100%); pointer-events: none; border-radius: 14px; }
-.ml-picker-line { position: absolute; left: 12px; right: 12px; height: 52px; top: 50%; transform: translateY(-50%); border-top: 1.5px solid var(--milk-border); border-bottom: 1.5px solid var(--milk-border); pointer-events: none; }
-.ml-row { display: flex; align-items: center; gap: 12px; }
-.ml-unit { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--text2); font-weight: 500; }
+.ml-input-wrap { display: flex; align-items: center; gap: 10px; }
+.ml-stepper-btn {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid var(--milk-border);
+  background: var(--milk-bg);
+  color: var(--milk);
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.ml-stepper-btn:active { opacity: 0.7; transform: scale(0.93); }
+.ml-number-input {
+  flex: 1;
+  padding: 12px 8px;
+  background: var(--surface);
+  border: 1.5px solid var(--milk-border);
+  border-radius: 14px;
+  color: var(--milk);
+  font-size: 28px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+  outline: none;
+  -webkit-appearance: none;
+  letter-spacing: -0.02em;
+}
+.ml-number-input:focus { border-color: var(--milk); box-shadow: 0 0 0 3px var(--milk-glow, rgba(52,199,123,0.15)); }
+.ml-unit-label { font-size: 16px; color: var(--text2); font-weight: 600; font-family: 'DM Mono', monospace; flex-shrink: 0; }
 
 .submit-btn { width: 100%; padding: 17px; background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 100%); color: #fff; border: none; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; font-family: inherit; box-shadow: 0 4px 16px rgba(196,181,253,0.4); transition: opacity 0.15s; }
 .submit-btn:active { opacity: 0.85; }
@@ -371,6 +395,29 @@ header {
 }
 .fixed-records-list .activity-item {
   padding: 12px 16px;
+}
+.fixed-records-filter {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.filter-btn.active {
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(196,181,253,0.35);
 }
 .fixed-records-list .empty {
   padding: 24px 16px;
@@ -482,8 +529,12 @@ header {
 <!-- ★全記録 固定エリア（タブ外・常時表示） -->
 <div class="fixed-records-wrap">
   <div class="fixed-records-header">
-    <div class="fixed-records-title">📋 全記録</div>
+    <div class="fixed-records-title">📋 記録一覧</div>
     <div class="fixed-records-count" id="event-count">—</div>
+  </div>
+  <div class="fixed-records-filter">
+    <button class="filter-btn active" id="filter-today" onclick="setFilter('today')">今日</button>
+    <button class="filter-btn" id="filter-all" onclick="setFilter('all')">すべて</button>
   </div>
   <div class="fixed-records-list activity-list" id="today-list" style="margin:0;border-radius:0;border:none;box-shadow:none"></div>
 </div>
@@ -491,7 +542,6 @@ header {
 <nav class="tab-bar">
   <button class="tab active" onclick="switchTab(event,'today')">今日</button>
   <button class="tab" onclick="switchTab(event,'week')">週間</button>
-  <button class="tab" onclick="switchTab(event,'log')">履歴</button>
   <button class="tab" onclick="switchTab(event,'weight')">体重</button>
 </nav>
 
@@ -539,11 +589,7 @@ header {
   <div class="weekly-chart"><svg class="weekly-svg" id="weekly-sleep-svg" viewBox="0 0 360 140" preserveAspectRatio="none"></svg></div>
 </div>
 
-<!-- 履歴 -->
-<div class="section" id="sec-log">
-  <div class="hero"><div class="hero-greeting">履歴<span>.</span></div><div class="hero-subtitle">すべての記録を時系列で表示</div></div>
-  <div class="activity-list" id="all-list"></div>
-</div>
+
 
 <!-- 体重 -->
 <div class="section" id="sec-weight">
@@ -564,16 +610,46 @@ header {
 <div class="modal" id="modal"><div class="modal-handle"></div><div id="modal-content"></div></div>
 
 <script>
-// ===== Supabase =====
+// ===== Supabase REST API =====
 const SUPABASE_URL = 'https://nhirvxinironzvbloqul.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_pEQn-wJ58PdZWuFuokRR9w_Rne4WuTs';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oaXJ2eGluaXJvbnp2YmxvcXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NDA1OTYsImV4cCI6MjA5NDAxNjU5Nn0.figRzb2jubBQbUwvJTLBI9a1KlNUa5AvsTvgLQZqEf4';
+const SB_HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=minimal'
+};
 
-const KEY = 'baby-tracker-v6'; // localStorageフォールバック用
+async function sbGet() {
+  const url = `${SUPABASE_URL}/rest/v1/records?select=*&order=ts.asc`;
+  const r = await fetch(url, { headers: SB_HEADERS });
+  if (!r.ok) throw new Error('GET failed: ' + r.status);
+  return await r.json();
+}
+async function sbUpsert(row) {
+  const url = `${SUPABASE_URL}/rest/v1/records`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error('UPSERT failed: ' + r.status + ' ' + t);
+  }
+}
+async function sbDelete(id) {
+  const url = `${SUPABASE_URL}/rest/v1/records?id=eq.${encodeURIComponent(id)}`;
+  const r = await fetch(url, { method: 'DELETE', headers: SB_HEADERS });
+  if (!r.ok) throw new Error('DELETE failed: ' + r.status);
+}
+
+const KEY = 'baby-tracker-v6';
 let records = [];
 let currentDate = new Date().toISOString().slice(0,10);
 let timerState = { active:null, leftSec:0, rightSec:0, leftStart:null, rightStart:null, tickInterval:null };
 let currentTab = 'today';
+let recordFilter = 'today'; // 'today' | 'all'
 let selectedGender = '';
 
 // ===== SETUP =====
@@ -692,76 +768,81 @@ function applyBabyInfo() {
 async function loadData() {
   showLoadingOverlay(true);
   try {
-    const { data, error } = await sb.from('records').select('*').order('ts', { ascending: true });
-    if (error) throw error;
-    records = (data || []).map(row => {
-      const r = { id: row.id, type: row.type, ts: row.ts, ...row.data };
-      if (row.end_ts) r.end = row.end_ts;
-      return r;
-    });
+    const data = await sbGet();
+    records = data.map(rowToRecord);
+    console.log('✅ Supabase読み込み成功:', records.length, '件');
   } catch(e) {
-    console.warn('Supabase読み込み失敗、ローカルにフォールバック:', e.message);
-    try { const raw = localStorage.getItem(KEY); if (raw) records = JSON.parse(raw); } catch(e2) { records = []; }
+    console.warn('⚠️ Supabase読み込み失敗:', e.message);
+    // ローカルからフォールバック
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) records = JSON.parse(raw);
+    } catch(e2) { records = []; }
   }
   showLoadingOverlay(false);
   const name = localStorage.getItem('baby-name');
   if (!name) setTimeout(() => openSetupModal(), 400);
   else applyBabyInfo();
   renderAll();
-  // リアルタイム購読
-  sb.channel('records-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, () => {
-      loadDataSilent();
-    })
-    .subscribe();
+  // 30秒ごとにポーリング（リアルタイム代わり）
+  setInterval(loadDataSilent, 30000);
+}
+
+function rowToRecord(row) {
+  const data = row.data || {};
+  const r = { id: row.id, type: row.type, ts: row.ts };
+  if (row.end_ts) r.end = row.end_ts;
+  // dataフィールドの各キーを展開
+  Object.keys(data).forEach(k => { r[k] = data[k]; });
+  return r;
 }
 
 async function loadDataSilent() {
   try {
-    const { data, error } = await sb.from('records').select('*').order('ts', { ascending: true });
-    if (error) throw error;
-    records = (data || []).map(row => {
-      const r = { id: row.id, type: row.type, ts: row.ts, ...row.data };
-      if (row.end_ts) r.end = row.end_ts;
-      return r;
-    });
+    const data = await sbGet();
+    records = data.map(rowToRecord);
     renderAll();
   } catch(e) { console.warn('silent reload failed:', e.message); }
 }
 
 async function saveRecord(r) {
+  const skip = new Set(['id','type','ts','end']);
+  const data = {};
+  Object.keys(r).forEach(k => { if(!skip.has(k)) data[k] = r[k]; });
   const row = {
-    id: r.id,
-    type: r.type,
-    ts: r.ts,
-    end_ts: r.end || null,
-    data: {}
+    id: String(r.id),
+    type: String(r.type),
+    ts: String(r.ts),
+    end_ts: r.end ? String(r.end) : null,
+    data: data
   };
-  // typeごとに追加データをdataに格納
-  const skip = ['id','type','ts','end'];
-  Object.keys(r).forEach(k => { if(!skip.includes(k)) row.data[k] = r[k]; });
   try {
-    const { error } = await sb.from('records').upsert(row);
-    if (error) throw error;
+    await sbUpsert(row);
+    console.log('✅ 保存成功:', row.type);
   } catch(e) {
-    console.warn('Supabase保存失敗、ローカルにフォールバック:', e.message);
-    localStorage.setItem(KEY, JSON.stringify(records));
+    console.error('❌ 保存失敗:', e.message);
+    // 3秒後にリトライ
+    setTimeout(async () => {
+      try { await sbUpsert(row); console.log('✅ リトライ成功'); }
+      catch(e2) { console.error('リトライも失敗:', e2.message); }
+    }, 3000);
   }
 }
 
 async function deleteFromDB(id) {
   try {
-    const { error } = await sb.from('records').delete().eq('id', id);
-    if (error) throw error;
+    await sbDelete(id);
   } catch(e) {
     console.warn('Supabase削除失敗:', e.message);
-    localStorage.setItem(KEY, JSON.stringify(records));
   }
 }
 
 function saveData() {
-  // ローカルにもバックアップ
-  try { localStorage.setItem(KEY, JSON.stringify(records)); } catch(e) {}
+  // ローカルバックアップ（エラー無視）
+  try {
+    const plain = records.map(r => Object.assign({}, r));
+    localStorage.setItem(KEY, JSON.stringify(plain));
+  } catch(e) { /* 無視 */ }
 }
 
 function showLoadingOverlay(show) {
@@ -797,41 +878,27 @@ function fmtTimeSince(iso) {
 function changeDay(d) { const dt=new Date(currentDate+'T00:00:00'); dt.setDate(dt.getDate()+d); if(dt>new Date()) return; currentDate=dt.toISOString().slice(0,10); renderAll(); }
 function goToday() { currentDate=todayStr(); renderAll(); }
 
-// ===== ML PICKER =====
-const ML_VALUES = [];
-for (let i=10; i<=300; i+=10) ML_VALUES.push(i);
-
-function buildMlPicker(lastMl) {
-  const defMl = lastMl || 80;
-  const idx = ML_VALUES.indexOf(defMl) !== -1 ? ML_VALUES.indexOf(defMl) : ML_VALUES.indexOf(80);
-  return `<div class="ml-row">
-    <div class="ml-picker-container">
-      <div class="ml-picker" id="ml-picker">
-        <div style="height:54px"></div>
-        ${ML_VALUES.map((v,i)=>`<div class="ml-picker-item${i===idx?' selected':''}" data-val="${v}">${v}</div>`).join('')}
-        <div style="height:54px"></div>
-      </div>
-      <div class="ml-picker-overlay"></div>
-      <div class="ml-picker-line"></div>
-    </div>
-    <div class="ml-unit">ml</div>
+// ===== ML INPUT =====
+function buildMlInput(lastMl) {
+  const def = lastMl || 80;
+  return `<div class="ml-input-wrap">
+    <button class="ml-stepper-btn" type="button" ontouchend="event.preventDefault();stepMl(-10)" onclick="stepMl(-10)">−</button>
+    <input type="number" class="ml-number-input" id="i-ml" value="${def}" min="0" max="500" step="10" inputmode="numeric">
+    <button class="ml-stepper-btn" type="button" ontouchend="event.preventDefault();stepMl(10)" onclick="stepMl(10)">＋</button>
+    <div class="ml-unit-label">ml</div>
   </div>`;
 }
-function initMlPicker(lastMl) {
-  const picker = document.getElementById('ml-picker');
-  if (!picker) return;
-  const defMl = lastMl || 80;
-  const idx = ML_VALUES.indexOf(defMl) !== -1 ? ML_VALUES.indexOf(defMl) : ML_VALUES.indexOf(80);
-  picker.scrollTop = idx * 52;
-  picker.addEventListener('scroll', () => {
-    const ci = Math.round(picker.scrollTop/52);
-    picker.querySelectorAll('.ml-picker-item').forEach((el,i) => el.classList.toggle('selected', i===ci));
-  }, { passive:true });
+function stepMl(delta) {
+  const el = document.getElementById('i-ml');
+  if (!el) return;
+  const cur = parseInt(el.value) || 0;
+  const next = Math.max(0, Math.min(500, cur + delta));
+  el.value = next;
 }
 function getSelectedMl() {
-  const picker = document.getElementById('ml-picker');
-  if (!picker) return 80;
-  return ML_VALUES[Math.min(Math.round(picker.scrollTop/52), ML_VALUES.length-1)] || 80;
+  const el = document.getElementById('i-ml');
+  if (!el) return 80;
+  return parseInt(el.value) || 80;
 }
 
 // ===== MODAL =====
@@ -845,8 +912,8 @@ function openModal(kind) {
   if (kind==='milk') {
     html=`<div class="modal-title">🍼 ミルク</div><div class="modal-sub">授乳を記録</div>
       <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
-      <div class="field"><div class="field-label">量</div>${buildMlPicker(lastMl)}</div>
-      <button class="submit-btn" onclick="saveMilk()">記録する</button>`;
+      <div class="field"><div class="field-label">量</div>${buildMlInput(lastMl)}</div>
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveMilk()" onclick="saveMilk()">記録する</button>`;
   } else if (kind==='breast') {
     html=`<div class="modal-title">🤱 母乳タイマー</div><div class="modal-sub">左右を計測して記録</div>
       <div class="timer-display"><div class="timer-time" id="timer-time">00:00</div><div class="timer-label" id="timer-label">タップして開始</div></div>
@@ -859,36 +926,36 @@ function openModal(kind) {
   } else if (kind==='pee') {
     html=`<div class="modal-title">💧 おしっこ</div><div class="modal-sub">おしっこを記録</div>
       <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
-      <button class="submit-btn" onclick="saveDiaper('pee')">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveDiaper('pee')" onclick="saveDiaper('pee')">記録する</button>`;
   } else if (kind==='poop') {
     html=`<div class="modal-title">💩 うんち</div><div class="modal-sub">うんちを記録</div>
       <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
-      <button class="submit-btn" onclick="saveDiaper('poop')">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveDiaper('poop')" onclick="saveDiaper('poop')">記録する</button>`;
   } else if (kind==='sleep') {
     html=`<div class="modal-title">😴 睡眠</div><div class="modal-sub">お昼寝・夜の睡眠を記録</div>
       <div class="field"><div class="field-label">開始</div><div class="field-row"><input type="time" class="field-input" id="i-start" value="${now}"><button class="now-btn" onclick="document.getElementById('i-start').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
       <div class="field"><div class="field-label">終了</div><div class="field-row"><input type="time" class="field-input" id="i-end" value="${now}"><button class="now-btn" onclick="document.getElementById('i-end').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
-      <button class="submit-btn" onclick="saveSleep()">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveSleep()" onclick="saveSleep()">記録する</button>`;
   } else if (kind==='weight') {
     html=`<div class="modal-title">⚖️ 体重</div><div class="modal-sub">体重を記録</div>
       <div class="field"><div class="field-label">日付</div><input type="date" class="field-input" id="i-date" value="${todayStr()}"></div>
       <div class="field"><div class="field-label">体重 (g)</div><input type="number" class="field-input" id="i-g" placeholder="3500" min="0" max="15000" step="10" inputmode="numeric"></div>
-      <button class="submit-btn" onclick="saveWeight()">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveWeight()" onclick="saveWeight()">記録する</button>`;
   } else if (kind==='bath') {
     html=`<div class="modal-title">🛁 お風呂</div><div class="modal-sub">入浴を記録</div>
       <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
-      <button class="submit-btn" onclick="saveBath()">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveBath()" onclick="saveBath()">記録する</button>`;
   } else if (kind==='temp') {
     html=`<div class="modal-title">🌡️ 体温</div><div class="modal-sub">体温を記録</div>
       <div class="field"><div class="field-label">時刻</div><div class="field-row"><input type="time" class="field-input" id="i-time" value="${now}"><button class="now-btn" onclick="document.getElementById('i-time').value=new Date().toTimeString().slice(0,5)">今</button></div></div>
       <div class="field"><div class="field-label">体温 (°C)</div><input type="number" class="field-input" id="i-temp" placeholder="36.8" min="34" max="42" step="0.1" inputmode="decimal"></div>
-      <button class="submit-btn" onclick="saveTemp()">記録する</button>`;
+      <button class="submit-btn" type="button" ontouchend="event.preventDefault();saveTemp()" onclick="saveTemp()">記録する</button>`;
   }
 
   c.innerHTML = html;
   document.getElementById('modal-bg').classList.add('open');
   document.getElementById('modal').classList.add('open');
-  if (kind==='milk') setTimeout(() => initMlPicker(lastMl), 50);
+
 }
 function closeModal() { document.getElementById('modal-bg').classList.remove('open'); document.getElementById('modal').classList.remove('open'); }
 
@@ -912,27 +979,30 @@ function toggleSide(side) {
   updateTimerDisplay();
 }
 function resetTimer() { if(timerState.tickInterval) clearInterval(timerState.tickInterval); timerState={active:null,leftSec:0,rightSec:0,leftStart:null,rightStart:null,tickInterval:null}; updateTimerDisplay(); }
-async function saveBreast() {
+function saveBreast() {
   if(timerState.leftSec===0&&timerState.rightSec===0) return showToast('計測してください');
   if(timerState.tickInterval){clearInterval(timerState.tickInterval);timerState.tickInterval=null;}
   const r={id:'r_'+Date.now(),type:'breast',ts:timerState.leftStart||new Date().toISOString(),leftSec:timerState.leftSec,rightSec:timerState.rightSec,totalSec:timerState.leftSec+timerState.rightSec};
-  records.push(r); resetTimer(); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🤱 母乳記録完了');
+  records.push(r); resetTimer(); saveData(); closeModal(); renderAll(); showToast('🤱 母乳記録完了');
+  saveRecord(r).catch(e=>console.error(e));
 }
 
 // ===== SAVE =====
-async function saveMilk() {
+function saveMilk() {
   const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
-  const ml=getSelectedMl();
+  const ml=getSelectedMl(); if(ml<=0) return showToast('量を入力してください');
   const r={id:'r_'+Date.now(),type:'milk',ts:dateWithTime(currentDate,t),ml};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast(`🍼 ${ml}ml 記録しました`);
+  records.push(r); saveData(); closeModal(); renderAll(); showToast(`🍼 ${ml}ml 記録しました`);
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function saveDiaper(sub) {
+function saveDiaper(sub) {
   const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
   const r={id:'r_'+Date.now(),type:'diaper',ts:dateWithTime(currentDate,t),sub};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal();
+  records.push(r); saveData(); closeModal(); renderAll();
   showToast(sub==='pee'?'💧 おしっこ記録しました':'💩 うんち記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function saveSleep() {
+function saveSleep() {
   const s=document.getElementById('i-start').value, e=document.getElementById('i-end').value;
   if(!s||!e) return showToast('開始・終了を入力してください');
   let st=dateWithTime(currentDate,s), et=dateWithTime(currentDate,e);
@@ -940,33 +1010,37 @@ async function saveSleep() {
   const mins=Math.round((new Date(et)-new Date(st))/60000);
   if(mins<=0) return showToast('時間が正しくありません');
   const r={id:'r_'+Date.now(),type:'sleep',ts:st,end:et,mins};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('😴 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('😴 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function saveWeight() {
+function saveWeight() {
   const d=document.getElementById('i-date').value, g=document.getElementById('i-g').value;
   if(!d||!g||+g<=0) return showToast('体重と日付を入力してください');
   const r={id:'r_'+Date.now(),type:'weight',ts:d+'T12:00:00.000Z',g:+g};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('⚖️ 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('⚖️ 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function saveBath() {
+function saveBath() {
   const t=document.getElementById('i-time').value; if(!t) return showToast('時刻を入力してください');
   const r={id:'r_'+Date.now(),type:'bath',ts:dateWithTime(currentDate,t)};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🛁 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('🛁 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function saveTemp() {
+function saveTemp() {
   const t=document.getElementById('i-time').value, temp=document.getElementById('i-temp').value;
   if(!t||!temp) return showToast('時刻と体温を入力してください');
   const r={id:'r_'+Date.now(),type:'temp',ts:dateWithTime(currentDate,t),temp:+temp};
-  records.push(r); saveData(); await saveRecord(r); renderAll(); closeModal(); showToast('🌡️ 記録しました');
+  records.push(r); saveData(); closeModal(); renderAll(); showToast('🌡️ 記録しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
-async function deleteRecord(id) {
-  const i = records.findIndex(r => r.id === id);
+function deleteRecord(id) {
+  const i = records.findIndex(r => String(r.id) === String(id));
   if (i === -1) return;
   const deleted = records[i];
   records.splice(i, 1);
   saveData();
   renderAll();
-  await deleteFromDB(id);
+  deleteFromDB(id).catch(e=>console.error(e));
   // undoトースト
   const toast = document.createElement('div');
   toast.className = 'toast toast-delete';
@@ -977,15 +1051,16 @@ async function deleteRecord(id) {
   const timer = setTimeout(() => { toast.remove(); window._deletedRecord = null; }, 3500);
   window._deleteTimer = timer;
 }
-async function undoDelete() {
+function undoDelete() {
   if (!window._deletedRecord) return;
   clearTimeout(window._deleteTimer);
   const r = window._deletedRecord;
   records.splice(window._deleteIdx, 0, r);
   window._deletedRecord = null;
-  saveData(); await saveRecord(r); renderAll();
+  saveData(); renderAll();
   document.querySelector('.toast-delete')?.remove();
   showToast('元に戻しました');
+  saveRecord(r).catch(e=>console.error(e));
 }
 
 // ===== RENDER =====
@@ -1057,12 +1132,33 @@ function renderToday() {
 }
 
 function renderTodayList(){
-  const tr=recordsForDate(currentDate);
-  const sorted=[...tr].sort((a,b)=>b.ts.localeCompare(a.ts));
-  document.getElementById('event-count').textContent=`${tr.length}件`;
-  document.getElementById('today-list').innerHTML=sorted.length
-    ? sorted.map(r=>activityHTML(r)).join('')
-    : `<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">この日の記録はまだありません</div></div>`;
+  let list;
+  if (recordFilter === 'all') {
+    list = [...records].sort((a,b)=>b.ts.localeCompare(a.ts));
+  } else {
+    list = recordsForDate(currentDate).sort((a,b)=>b.ts.localeCompare(a.ts));
+  }
+  document.getElementById('event-count').textContent = `${list.length}件`;
+  if (!list.length) {
+    document.getElementById('today-list').innerHTML =
+      `<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">${recordFilter==='all'?'記録がありません':'この日の記録はまだありません'}</div></div>`;
+    return;
+  }
+  if (recordFilter === 'all') {
+    // 日付グループ表示
+    let html = '', lastDate = '';
+    list.forEach(r => {
+      const d = r.ts.slice(0,10);
+      if (d !== lastDate) {
+        html += `<div class="date-group" style="margin:0">${fmtDateLong(r.ts)}</div>`;
+        lastDate = d;
+      }
+      html += activityHTML(r);
+    });
+    document.getElementById('today-list').innerHTML = html;
+  } else {
+    document.getElementById('today-list').innerHTML = list.map(r => activityHTML(r)).join('');
+  }
 }
 
 function drawTimebar(tr,milk,breast,pee,poop,sleep){
@@ -1096,13 +1192,7 @@ function activityHTML(r){
   return `<div class="activity-item"><div class="activity-time">${fmtTime(r.ts)}</div><div class="activity-icon ${cls}">${icon}</div><div class="activity-text"><div class="activity-main">${main}</div><div class="activity-sub">${sub}</div></div>${amount?`<div class="activity-amount">${amount}</div>`:''}<button class="del-btn" data-rid="${r.id||''}" ontouchend="event.preventDefault();deleteRecord(this.dataset.rid)" onclick="deleteRecord(this.dataset.rid)">×</button></div>`;
 }
 
-function renderHistory(){
-  const sorted=[...records].map((r,i)=>({r,i})).sort((a,b)=>b.r.ts.localeCompare(a.r.ts));
-  if(!sorted.length){document.getElementById('all-list').innerHTML=`<div class="empty"><div class="empty-icon">🌸</div><div class="empty-text">記録がありません</div></div>`;return;}
-  let html='',lastDate='';
-  sorted.forEach(({r})=>{const d=r.ts.slice(0,10);if(d!==lastDate){html+=`<div class="date-group">${fmtDateLong(r.ts)}</div>`;lastDate=d;}html+=activityHTML(r);});
-  document.getElementById('all-list').innerHTML=html;
-}
+// renderHistory: 削除済み（全記録エリアに統合）
 function renderWeekly(){
   const today=new Date(),days=[];
   for(let i=6;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10),recs=recordsForDate(ds);days.push({date:ds,label:d.toLocaleDateString('ja-JP',{weekday:'short'}),short:d.toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'}),milkMl:recs.filter(r=>r.type==='milk').reduce((a,b)=>a+b.ml,0),sleepMin:recs.filter(r=>r.type==='sleep').reduce((a,b)=>a+b.mins,0)});}
@@ -1146,9 +1236,16 @@ function switchTab(e,name){
   currentTab = name;
   if(name==='today') renderToday();
   else if(name==='week') renderWeekly();
-  else if(name==='log') renderHistory();
+
   else if(name==='weight') renderWeight();
 }
+function setFilter(f) {
+  recordFilter = f;
+  document.getElementById('filter-today').classList.toggle('active', f === 'today');
+  document.getElementById('filter-all').classList.toggle('active', f === 'all');
+  renderTodayList();
+}
+
 function showToast(msg){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .35s';setTimeout(()=>t.remove(),400)},2200);}
 
 setInterval(renderSinceLast,60000);
