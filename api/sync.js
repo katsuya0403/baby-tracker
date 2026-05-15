@@ -24,15 +24,22 @@ export default async function handler(req, res) {
       res.status(200).json({ records });
 
     } else if (req.method === 'POST') {
-      const { records: clientRecs } = req.body;
-      const fbData = await fbRequest('GET', 'records');
-      const fbRecs = fbData
-        ? Object.entries(fbData).map(([id, val]) => ({ id, ...val }))
-        : [];
-      const map = {};
-      fbRecs.forEach(r => { map[r.id] = r; });
-      clientRecs.forEach(r => { map[r.id] = r; });
-      const merged = Object.values(map);
+      const { records: clientRecs, force } = req.body;
+
+      let merged;
+      if (force) {
+        merged = clientRecs;
+      } else {
+        const fbData = await fbRequest('GET', 'records');
+        const fbRecs = fbData
+          ? Object.entries(fbData).map(([id, val]) => ({ id, ...val }))
+          : [];
+        const map = {};
+        fbRecs.forEach(r => { map[r.id] = r; });
+        clientRecs.forEach(r => { map[r.id] = r; });
+        merged = Object.values(map);
+      }
+
       const fbObj = {};
       merged.forEach(r => { const { id, ...rest } = r; fbObj[id] = rest; });
       await fbRequest('PUT', 'records', fbObj);
