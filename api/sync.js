@@ -17,33 +17,45 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const data = await fbRequest('GET', 'records');
+      const [data, deletedData] = await Promise.all([
+        fbRequest('GET', 'records'),
+        fbRequest('GET', 'deleted')
+      ]);
       const records = data
         ? Object.entries(data).map(([id, val]) => ({ id, ...val }))
         : [];
-      res.status(200).json({ records });
+      const deleted = deletedData ? Object.keys(deletedData) : [];
+      res.status(200).json({ records, deleted });
 
     } else if (req.method === 'POST') {
-      const { records: clientRecs, force } = req.body;
+      const { records: clientRecs, deleted: clientDeleted } = req.body;
 
-      let merged;
-      if (force) {
-        merged = clientRecs;
-      } else {
-        const fbData = await fbRequest('GET', 'records');
-        const fbRecs = fbData
-          ? Object.entries(fbData).map(([id, val]) => ({ id, ...val }))
-          : [];
-        const map = {};
-        fbRecs.forEach(r => { map[r.id] = r; });
-        clientRecs.forEach(r => { map[r.id] = r; });
-        merged = Object.values(map);
+      const fbDeletedData = await fbRequest('GET', 'deleted');
+      const fbDeleted = fbDeletedData ? Object.keys(fbDeletedData) : [];
+      const allDeleted = [...new Set([...fbDeleted, ...(clientDeleted || [])])];
+
+      if (allDeleted.length > 0) {
+        const deletedObj = {};
+        allDeleted.forEach(id => { deletedObj[id] = true; });
+        await fbRequest('PUT', 'deleted', deletedObj);
       }
+
+      const fbData = await fbRequest('GET', 'records');
+      const fbRecs = fbData
+        ? Object.entries(fbData).map(([id, val]) => ({ id, ...val }))
+        : [];
+
+      const map = {};
+      fbRecs.forEach(r => { map[r.id] = r; });
+      clientRecs.forEach(r => { map[r.id] = r; });
+      allDeleted.forEach(id => { delete map[id]; });
+      const merged = Object.values(map);
 
       const fbObj = {};
       merged.forEach(r => { const { id, ...rest } = r; fbObj[id] = rest; });
       await fbRequest('PUT', 'records', fbObj);
-      res.status(200).json({ records: merged });
+
+      res.status(200).json({ records: merged, deleted: allDeleted });
 
     } else {
       res.status(405).json({ error: 'Method not allowed' });
